@@ -1,4 +1,0 @@
-./datafiles/toy_cancer.fastq.gz T
-./datafiles/toy_cancer_rev.fastq.gz T
-./datafiles/toy_healthy.fastq.gz H
-./datafiles/toy_healthy_rev.fastq.gz H
