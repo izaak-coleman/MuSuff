@@ -77,6 +77,7 @@ BranchPointGroups::~BranchPointGroups() {
 void BranchPointGroups::generateBranchpointGroups() {
   double cancer_sequences = 0, healthy_sequences = 0;
   unsigned int extension;
+  cout << "SuffixArray size: " << SA->getSize() << endl;
 
 
 

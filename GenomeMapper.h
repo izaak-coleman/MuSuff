@@ -49,10 +49,11 @@ private:
   // to the refrence genome. 
   // a fastq element has format 
 
-  // @mutation_string
-  // non_mutated_read
-  // +
-  // ~ (* non_mutated_read.size())
+
+  void callBWA();
+
+
+
 
 
 

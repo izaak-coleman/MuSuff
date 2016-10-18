@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <cstdlib>
 
 #include "GenomeMapper.h"
 #include "BranchPointGroups.h"
@@ -20,6 +21,21 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads)
 
   countSNVs();
   constructSNVFastqData();
+}
+
+void callBWA() {
+  string command_aln = 
+    "./bwa/bwa aln -t 16 hg19.fa cns_pairs.fastq > cns_pairs.sai";
+
+  string command_sampe = 
+    "./bwa/bwa sampe hg19.fa cns_pairs.sai cns_pairs.fastq > cns_pairs.sam";
+
+  string command_sam_parser = 
+    "./sam_parser cns_pairs.sam mutations.snv.txt";
+
+  system(command_aln.c_str());
+  system(command_sampe.c_str());
+  system(command_sam_parser.c_str());
 }
 
 
@@ -164,7 +180,7 @@ void GenomeMapper::printConsensusPairs() {
 
 void GenomeMapper::constructSNVFastqData() {
   ofstream snv_fq;
-  snv_fq.open("SNV_reads.fastq");
+  snv_fq.open("cns_pairs.fastq");
 
   for (consensus_pair &cns_pair : consensus_pairs) {
     if(cns_pair.mutations.SNV_pos.size() == 0) {
