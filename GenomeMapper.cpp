@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <cstdlib>
 
 #include "GenomeMapper.h"
 #include "BranchPointGroups.h"
@@ -20,6 +21,34 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads)
 
   countSNVs();
   constructSNVFastqData();
+  callBWA();
+  callSamParser();
+}
+
+void GenomeMapper::callBWA() {
+  cout << "Calling bwa..." << endl;
+
+  string command_aln = 
+    "./bwa/bwa aln -t 16 hg19.fa cns_pairs.fastq > cns_pairs.sai";
+
+  string command_sampe = 
+    "./bwa/bwa samse hg19.fa cna_pairs.sai cns_pair.fastq > cns_pairs.sam";
+
+  system(command_aln.c_str());  
+  system(command_sampe.c_str());
+
+  cout << "Finished bwa call." << endl;
+}
+
+void GenomeMapper::callSamParser() {
+
+  cout << "Begining sam_parser call..." << endl;
+
+  string command_sam_parser = 
+    "./sam_parser cns_pairs.sam mutations.snv.txt";
+
+  system(command_sam_parser.c_str());
+  cout << "Finishing sam_parser call." << endl;
 }
 
 

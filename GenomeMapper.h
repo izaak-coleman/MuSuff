@@ -49,11 +49,15 @@ private:
   // to the refrence genome. 
   // a fastq element has format 
 
-  // @mutation_string
-  // non_mutated_read
-  // +
-  // ~ (* non_mutated_read.size())
+  void callBWA();
+  // Function first calls bwa aln:
+  // cmd ./bwa/bwa aln -t 16 hg19.fa cns_pairs.fastq > cns_pairs.sai
+  // Then cals to bwa samse
+  // ./bwa/bwa samse hg19.fa cna_pairs.sai cns_pair.fastq > cns_pairs.sam
 
+  void callSamParser();
+  // Function calls sam_parser.cpp
+  // ./sam_parser cns_pairs.sam mutations.snv.txt
 
 
 public:
