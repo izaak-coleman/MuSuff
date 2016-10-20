@@ -16,6 +16,13 @@ private:
   ReadsManipulator *reads;
   std::vector<Suffix_t> *SA;      // pointer to suffix array
 
+  void buildGSAFile(std::vector<Suffix_t> &GSA, std::string filename);
+  // Writes csv equivalent of GSA, for persistent use into a .gsa file
+
+  void constructGSAFromFile(std::vector<Suffix_t> &GSA, std::string filename);
+  // Constructs a generalized suffix array from a .gsa
+
+
  
   // MERGE SORT FUNCTIONS
   void sort(unsigned int from, unsigned int to, unsigned int level);

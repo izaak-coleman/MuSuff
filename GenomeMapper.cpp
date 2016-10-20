@@ -29,10 +29,10 @@ void GenomeMapper::callBWA() {
   cout << "Calling bwa..." << endl;
 
   string command_aln = 
-    "./bwa/bwa aln -t 16 hg19.fa cns_pairs.fastq > cns_pairs.sai";
+    "./bwa/bwa aln -t 16 ./dataset/ref_genome/hg19.fa cns_pairs.fastq > cns_pairs.sai";
 
   string command_sampe = 
-    "./bwa/bwa samse hg19.fa cna_pairs.sai cns_pair.fastq > cns_pairs.sam";
+    "./bwa/bwa samse ./dataset/ref_genome/hg19.fa cns_pairs.sai cns_pairs.fastq > cns_pairs.sam";
 
   system(command_aln.c_str());  
   system(command_sampe.c_str());
@@ -193,7 +193,7 @@ void GenomeMapper::printConsensusPairs() {
 
 void GenomeMapper::constructSNVFastqData() {
   ofstream snv_fq;
-  snv_fq.open("SNV_reads.fastq");
+  snv_fq.open("cns_pairs.fastq");
 
   for (consensus_pair &cns_pair : consensus_pairs) {
     if(cns_pair.mutations.SNV_pos.size() == 0) {
