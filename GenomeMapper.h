@@ -7,6 +7,24 @@
 #include "BranchPointGroups.h"
 #include "Reads.h"
 
+struct snv_aln_info {
+ std::vector<int> SNV_pos;
+ int flag;
+ int chr;
+ int position;
+ std::string reference_mismatch;
+ std::string non_mutated_cns;
+ std::string mutated_cns;
+};
+
+struct single_snv {
+ int flag;
+ int chr;
+ int position;
+ char mutation_base;
+ char healthy_base;
+};
+
 class GenomeMapper {
 
 private:
@@ -58,6 +76,14 @@ private:
   void callSamParser();
   // Function calls sam_parser.cpp
   // ./sam_parser cns_pairs.sam mutations.snv.txt
+
+  void call_SNV_variants(std::vector<snv_aln_info> &alignments, std::string filename);
+  void printAllAlignments(std::vector<snv_aln_info> &alignments);
+  void printSingleAlignment(snv_aln_info &snv);
+  std::string reverseComplementString(std::string s);
+  void correctReverseCompSNV(std::vector<snv_aln_info> &alignments);
+  static bool compareSNVLocations(const single_snv &a, const single_snv &b);
+  void outputSNVToUser(std::vector<snv_aln_info> &alignments, std::string report_filename);
 
 
 public:
