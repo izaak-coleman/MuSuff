@@ -1,0 +1,10 @@
+setwd("/Users/Izaak/Documents/Computing/MscComputingsci/thesis")
+dir() 
+data = read.csv("thread.csv")
+threadsplit = split(data, data$threads)
+threadsplit
+plot(threadsplit$'1'$datas, threadsplit$'1'$ms, type="l", col="red", xlab="Input data (thousands)",ylab="time (ms)", main="Time to construct GSA by ParallelRadixSAConstruction with increased threading")
+lines(threadsplit$'1'$datas, threadsplit$'2'$ms, type="l", col="green")
+lines(threadsplit$'1'$datas, threadsplit$'4'$ms, type="l", col="purple")
+lines(threadsplit$'1'$datas, threadsplit$'8'$ms, type="l", col="blue")
+legend(locator(1),c("1 thread","2 threads", "4 threads", "8 threads"),pch=c(1,16), col=c("red","green", "purple", "blue"))
