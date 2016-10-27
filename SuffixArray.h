@@ -47,7 +47,6 @@ private:
   void lexMergeSort();
   // Functin lexicographically sorts the suffixes in SA, by the end of this
   // function SA has been transformed into an actual suffix Array
-  // NOTE: probably best to return a sorted SA, deleting a heap input
 
 
 

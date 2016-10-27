@@ -8,7 +8,7 @@
 #include <utility>  // need coordinates to define read index, bool
 #include <mutex>
 
-#include "helper_functions.h"
+#include "util_funcs.h"
 #include "Suffix_t.h"
 #include "SuffixArray.h"
 

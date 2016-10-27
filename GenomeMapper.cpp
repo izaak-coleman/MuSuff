@@ -8,7 +8,7 @@
 #include "GenomeMapper.h"
 #include "BranchPointGroups.h"
 #include "Reads.h"
-#include "helper_functions.h"
+#include "util_funcs.h"
 
 using namespace std;
 
@@ -38,7 +38,6 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads)
   countSNVs();
   constructSNVFastqData();
   callBWA();
-  callSamParser();
 
   vector<snv_aln_info> alignments;
   call_SNV_variants(alignments, "cns_pairs.sam");
@@ -60,18 +59,6 @@ void GenomeMapper::callBWA() {
 
   cout << "Finished bwa call." << endl;
 }
-
-void GenomeMapper::callSamParser() {
-
-  cout << "Begining sam_parser call..." << endl;
-
-  string command_sam_parser = 
-    "./sam_parser cns_pairs.sam mutations.snv.txt";
-
-  system(command_sam_parser.c_str());
-  cout << "Finishing sam_parser call." << endl;
-}
-
 
 void GenomeMapper::buildConsensusPairs() {
 

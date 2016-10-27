@@ -2,8 +2,9 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include <utility>
 #include <fstream>
+#include <utility>
+#include <cstring>
 
 // For parallel data processing 
 #include <thread>
@@ -13,17 +14,24 @@
 #include "kseq.h"   // fastq parser
 
 
-#include "helper_functions.h"
+#include "util_funcs.h"
 #include "Reads.h"
 
 KSEQ_INIT(gzFile, gzread);    // initialize .gz parser
 
 
 using namespace std;
+static const int NUM_ARGS = 4;
+static const int HEADER_FILE_IDX = 1;
+static const int MIN_SUF_IDX = 2;
+static const int ECONT_IDX = 3;
+static const int TERM_CHAR_CORRECTION = 1;
+static const int N_THREADS = 1;
 
+ReadsManipulator::ReadsManipulator(int argc, char **argv) {
 
-
-ReadsManipulator::ReadsManipulator(command_line_params &params) {
+  vector<file_and_type> datafiles;
+  parseCommandLine(argc, argv, datafiles);
 
   // Inititalize Read stores
   HealthyReads = new vector<string>;
@@ -31,37 +39,94 @@ ReadsManipulator::ReadsManipulator(command_line_params &params) {
 
 
   // start reading files
-  cout << "About to parse " << params.datafiles.size() << " files..." << endl;
+  cout << "Extracting fastq data from " << datafiles.size() << " files..." << endl;
 
-  for(int i=0; i < params.datafiles.size(); i++) {
-
-    vector<fastq_t> raw_data; // hold next file raw data
-
-    cout << "Loading data from " << params.datafiles[i].first << " ..." << endl;
-
-    if (params.datafiles[i].second) { // == HEALTHY
-      cout << params.datafiles[i].first << "Healllthy" << endl;
-      loadFastqRawDataFromFile(params.datafiles[i].first, raw_data, HealthyReads);
+  for(int i=0; i < datafiles.size(); i++) {
+    cout << "Loading data from " << datafiles[i].first << "..." << endl;
+    if (datafiles[i].second) { // == HEALTHY
+      cout << datafiles[i].first << endl;
+      loadFastqRawDataFromFile(datafiles[i].first, HealthyReads);
     }
-
     else{ // filetype == TUMOUR
-      cout << params.datafiles[i].first << "tumour" << endl;
-      loadFastqRawDataFromFile(params.datafiles[i].first, raw_data, TumourReads);
+      cout << datafiles[i].first << endl;;
+      loadFastqRawDataFromFile(datafiles[i].first, TumourReads);
     }
   }
+}
 
-  n_healthy_reads = HealthyReads->size();
-  n_tumour_reads  = TumourReads->size();
+void ReadsManipulator::parseCommandLine(int argc, char** argv,
+    vector<file_and_type> &datafiles) {
+
+  // Only NUM_ARGS input. If fail count, explain to user options and
+  // file format
+  if (argc != NUM_ARGS) {
+    cout << "Usage: <exec> <datafile_names.txt>"
+         << " <minimum_suffix_size> <contamination_ratio>" << endl;
+
+    cout << endl << endl;
+    cout << "Please note the the format of headerfile.txt:"
+         << endl 
+         << "<file1>\t<H/T> <1/2>" << endl
+         << "<file2>\t<H/T> <1/2>" << endl
+         << "..." << endl;
+    exit(1);
+  }
+
+  // save params
+  minimum_suffix_size = std::stoi(argv[MIN_SUF_IDX]) + TERM_CHAR_CORRECTION;
+  econt = std::stod(argv[ECONT_IDX]);
+
+  // store data file names
+  ifstream headerfile;
+  headerfile.open(argv[HEADER_FILE_IDX]);
+  cout << "Parsing inputs..." << endl;
+  cout << "Reading filenames from " << argv[HEADER_FILE_IDX] << " ... " << endl;
+
+  string file_string;
+  file_and_type file_info;
+
+  while (getline(headerfile, file_string)) {
+
+    // momentarily work with c strings, to make use of the glorious strtok()...
+
+    // load the filename into file_and_type...
+    char * c_file = const_cast<char*>(file_string.c_str()); 
+    file_info.first = strtok(c_file, ",\t ");
+
+    // load the type bool into file_and_type...
+    char * c_datatype = strtok(NULL, ",\t ");      // get next feild
+    string datatype = c_datatype;                    // convert to string
+
+    if (datatype == "H") {              // then bool
+      file_info.second = HEALTHY;
+    }
+    else if (datatype == "T") {
+      file_info.second = TUMOUR;
+    }
+    else {
+      cout << datatype << " is not a valid datatype, either H or T. " << endl
+           << "Program terminating..." << endl;
+      exit(1);
+    }
+
+
+    cout << "Storing " << file_info.first << " as "
+         << ((file_info.second) ? "healthy" : "tumour") << " data "
+         << endl;
+
+    datafiles.push_back(file_info);      // store in params
+  }
 
 }
 
 void ReadsManipulator::loadFastqRawDataFromFile(string filename, 
-                              vector<fastq_t> &r_data, 
                               vector<string> *p_data) {
 
   gzFile data_file;
-  data_file = gzopen(filename.c_str(), "r");    // link to next fastq.gz 
+  data_file = gzopen(filename.c_str(), "r");    // open stream to next fastq.gz 
   kseq_t *seq = kseq_init(data_file);           // init parser
+
+  vector<fastq_t> fastq_elements;
 
   // Load data from file into array
   int eof_check;
@@ -78,46 +143,36 @@ void ReadsManipulator::loadFastqRawDataFromFile(string filename,
       // copy quality string
       next_read.qual = seq->qual.s;
 
-      r_data.push_back(next_read);     // load into global vector
+      fastq_elements.push_back(next_read);     // load into global vector
     }
   }
-  
-
-  cout << "Size of raw_data: " << r_data.size() << endl;
-  //cout << "printing raw_data: " << endl;
-  //for(fastq_t f: r_data) {
-  //  cout << f.id << endl << f.seq << endl << endl;
-  //}
-
-
   kseq_destroy(seq);
   gzclose(data_file);
  
 
   // MULTITHREADED SECTION
-  int nthreads = 1;
   vector<thread> thread_group;                      // set up thread store
-  thread_group.reserve(nthreads);
+  thread_group.reserve(N_THREADS);
 
-  vector<fastq_t> *r_data_p = &r_data;
+  vector<fastq_t> *fastq_elements_p = &fastq_elements;
 
-  int elements_per_thread = (r_data.size() / nthreads);
+  int elements_per_thread = (fastq_elements.size() / N_THREADS);
   int from = 0, to = elements_per_thread;
 
   // run threads...
 
-  for(int i=0; i < nthreads; ++i) {
+  for(int i=0; i < N_THREADS; ++i) {
     // run thread, processing a chunk of the raw data
     thread_group.push_back(
          std::thread(&ReadsManipulator::qualityProcessRawData, this, 
-                     r_data_p, p_data, from, to, i));
+                     fastq_elements_p, p_data, from, to, i));
 
 
     // set up next chunk
     from = to;
-    if (i == nthreads-1) {// last thread
+    if (i == N_THREADS-1) {// last thread
       cout << "All reads input" << endl;
-      to = r_data.size();
+      to = fastq_elements.size();
     }
     else {
       to += elements_per_thread;
@@ -322,6 +377,13 @@ string & ReadsManipulator::getReadByIndex(int index, int tissue) {
   else {  // tissue == TUMOUR || tissue == SWITCHED
     return (*TumourReads)[index];
   }
+}
+
+int ReadsManipulator::getMinSuffixSize() {
+  return minimum_suffix_size;
+}
+double ReadsManipulator::getEcont() {
+  return econt;
 }
 
 

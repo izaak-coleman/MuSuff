@@ -73,9 +73,6 @@ private:
   // Then cals to bwa samse
   // ./bwa/bwa samse hg19.fa cna_pairs.sai cns_pair.fastq > cns_pairs.sam
 
-  void callSamParser();
-  // Function calls sam_parser.cpp
-  // ./sam_parser cns_pairs.sam mutations.snv.txt
 
   void call_SNV_variants(std::vector<snv_aln_info> &alignments, std::string filename);
   void printAllAlignments(std::vector<snv_aln_info> &alignments);

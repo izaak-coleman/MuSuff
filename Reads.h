@@ -8,30 +8,41 @@
 
 #include <mutex>  // lock
 
-#include "helper_functions.h"
+#include "util_funcs.h"
 
-  struct fastq_t {      // Struct only read needs to know about
-    std::string id, seq, qual;
-  };
+struct fastq_t {      // Struct only read needs to know about
+  std::string id, seq, qual;
+};
+
+struct file_and_type {
+  std::string first;    // filename
+  bool second;          // data set
+};
+
 
 class ReadsManipulator{
   // This class stores all the reads for the dataset. 
   // Functions are allowed direct access to reads. 
 
-
 private:
+  int minimum_suffix_size;
+  double econt;
 
   std::mutex quality_processing_lock; 
   // lock for copying thread work to either HealthyReads or TumourReads
+
+  void parseCommandLine(int argc, char **argv, 
+      std::vector<file_and_type> &datafiles);
+  // extracts data file information from header file
+  // extracts econt and minimum suffix length
 
   std::vector<std::string> *HealthyReads;  // Container for healthy DNA reads
   std::vector<std::string> *TumourReads;   // Container for tumour DNA reads
 
 
 
- void loadFastqRawDataFromFile(std::string filename, 
-                               std::vector<fastq_t> &r_data,
-                               std::vector<std::string> *p_data);
+  void loadFastqRawDataFromFile(std::string filename, 
+                              std::vector<std::string> *p_data);
   // Function loads DNA reads from filename.fasta.gz
   // either HealthyReads/TumourReads dep. on passes pointer
 
@@ -57,7 +68,7 @@ public:
  // where their values express whether the read at the same index in 
  // the Healthy/TumourReads arrays if of LEFT or RIGHT type
 
- ReadsManipulator(command_line_params &params);
+ ReadsManipulator(int argc, char **argv);
  // Constructor for loading and processing reads
 
 
@@ -86,6 +97,13 @@ public:
  std::string & getReadByIndex(int index, int tissue);
  // This function returns the read by adress from the given 
  // Reads vector
+
+ int getMinSuffixSize();
+ // returns the min suffix size of suffixes in the suffix array
+ // as specified by the user
+
+ double getEcont();
+ // returns the econt value as specified by the user at cmd-line
 
 };
 #endif

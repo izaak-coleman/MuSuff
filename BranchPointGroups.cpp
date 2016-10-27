@@ -14,7 +14,7 @@
 #include <mutex>
 
 
-#include "helper_functions.h"
+#include "util_funcs.h"
 #include "BranchPointGroups.h"
 #include "SuffixArray.h"
 #include "Suffix_t.h"
@@ -65,6 +65,7 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   cout << "Adding non-mutated alleles to blocks." << endl;
 
   extractNonMutatedAlleles();
+  printBreakPointBlocks();
 
 }
 

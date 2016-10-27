@@ -18,6 +18,7 @@
 
 
 #include "Suffix_t.h"
+#include "util_funcs.h"
 #include "SuffixArray.h"
 #include "Reads.h"
 
@@ -44,28 +45,11 @@ SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
   // Load suffixes into SA vector
   cout << "Starting parallelGenRadixSA:" << endl;
 
-  START(lexMergeSort);
   loadUnsortedSuffixes(min_suffix);
   lexMergeSort();
-  END(lexMergeSort);
-  TIME(lexMergeSort);
-  PRINT(lexMergeSort);
   
-//  START(constructTotalRadixSA);
 //  constructTotalRadixSA(min_suffix);
-//  END(constructTotalRadixSA);
-//  TIME(constructTotalRadixSA);
-//  PRINT(constructTotalRadixSA);
-
-
-//  START(parallelGenRadixSA);
 //  parallelGenRadixSA(min_suffix);
-//  END(parallelGenRadixSA);
-//  TIME(parallelGenRadixSA);
-//  PRINT(parallelGenRadixSA);
-
-  buildGSAFile(*(this->SA), "toy_gsa.gsa");
-
 }
 
 
@@ -93,15 +77,11 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
       std::thread(&SuffixArray::buildBinarySearchArrays, this, &healthyBSA, &tumourBSA)
       );
 
-
   BSA_and_SA.push_back (
       std::thread(&SuffixArray::generateParallelRadix, this, &radixSA, 
         &startOfTumour, &radixSASize)
       );
 
-
-
-  // join up
   for(auto &thread : BSA_and_SA) { thread.join();}
 
 
@@ -274,10 +254,6 @@ void SuffixArray::constructTotalRadixSA(uint8_t min_suffix) {
     thread.join();
   }
 
-
-
-  cout << "size of healhty SA: " << healthy_SA.size() << endl;
-  cout << "size of tumour SA: " << tumour_SA.size() << endl;
 
 
   SA->reserve(healthy_SA.size() + tumour_SA.size()); // make room
