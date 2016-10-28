@@ -15,6 +15,7 @@
 
 
 #include "util_funcs.h"
+#include "string.h" // split_string()
 #include "Reads.h"
 
 KSEQ_INIT(gzFile, gzread);    // initialize .gz parser
@@ -28,15 +29,17 @@ static const int ECONT_IDX = 3;
 static const int TERM_CHAR_CORRECTION = 1;
 static const int N_THREADS = 1;
 
+static const double QUALITY_THRESH = 0.1; // 10% 
+static const char PHRED_20 = '5';   // lowest high quality phred score
+
+static const string REMOVED_TOKENS = "N"; // remove N from fastq
+static const string TERM_CHAR = "$";      // suffix termination character
+
+
 ReadsManipulator::ReadsManipulator(int argc, char **argv) {
 
   vector<file_and_type> datafiles;
   parseCommandLine(argc, argv, datafiles);
-
-  // Inititalize Read stores
-  HealthyReads = new vector<string>;
-  TumourReads  = new vector<string>;
-
 
   // start reading files
   cout << "Extracting fastq data from " << datafiles.size() << " files..." << endl;
@@ -52,6 +55,7 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
       loadFastqRawDataFromFile(datafiles[i].first, TumourReads);
     }
   }
+  cout << "End of ReadsManipulator constructor " << endl;
 }
 
 void ReadsManipulator::parseCommandLine(int argc, char** argv,
@@ -120,7 +124,7 @@ void ReadsManipulator::parseCommandLine(int argc, char** argv,
 }
 
 void ReadsManipulator::loadFastqRawDataFromFile(string filename, 
-                              vector<string> *p_data) {
+                              vector<string> &p_data) {
 
   gzFile data_file;
   data_file = gzopen(filename.c_str(), "r");    // open stream to next fastq.gz 
@@ -165,7 +169,7 @@ void ReadsManipulator::loadFastqRawDataFromFile(string filename,
     // run thread, processing a chunk of the raw data
     thread_group.push_back(
          std::thread(&ReadsManipulator::qualityProcessRawData, this, 
-                     fastq_elements_p, p_data, from, to, i));
+                     fastq_elements_p, &p_data, from, to, i));
 
 
     // set up next chunk
@@ -214,109 +218,93 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
     // link iterators to quality read of the next fastq elem
     string::iterator iter  = (*r_data)[i].qual.begin();
     string::iterator end   = (*r_data)[i].qual.end();
-
-
-    n_low_qual_bases = 0.0; 
-      // count bases with quality < 20
+    n_low_qual_bases = 0.0;                           // count low qual
     while (iter != end) {
-      if (*iter < '5') {
+      if (*iter < PHRED_20) {
         n_low_qual_bases++;
       }
       iter++;
     }
 
-    // if number of low quality bases above 10%, reject it 
+    // if number of low quality bases above QUALITY_THRESH reject it 
     // (skip over the read in the for loop without adding to localThreadStore)
-    if( (n_low_qual_bases / (*r_data)[i].qual.size()) >  0.1) {
+    if( (n_low_qual_bases / (*r_data)[i].qual.size()) >  QUALITY_THRESH) {
       continue;   // skip remaining for iteration
     }
 
+    // else, deemed high quality
 
-    
-    // If quality is high enough, now spliting strings with N
-    // characters
-
-
-    // Link iterators to string
-    string::iterator left = (*r_data)[i].seq.begin();
-    string::iterator right = (*r_data)[i].seq.begin();
-
-    while (right != (*r_data)[i].seq.end()) {    // while not at end...
-
-      // if the character 'N' is hit, and the distance from left to 
-      // right is more than 30 store substring
-      if(*right == 'N' && (std::distance(left, right) >= 30)) { 
-
-        localThreadsStore.push_back(
-            (*r_data)[i].seq.substr( (left - (*r_data)[i].seq.begin()), // from left
-              std::distance(left, right) ) + "$"
-        );
-
-        // right now pointing at 'N', so move one char forward
-        right++;
-        // we just started a new substring sequence, so set left to right
-        left = right;
+    vector<string> tokenless_set;
+    split_string((*r_data)[i].seq, REMOVED_TOKENS, tokenless_set); // remove tok
+    for (int i=0; i < tokenless_set.size(); i++) {
+      if(tokenless_set[i].length() >= minimum_suffix_size - TERM_CHAR_CORRECTION) {
+        localThreadsStore.push_back(tokenless_set[i] + TERM_CHAR);
       }
-
-      else if (*right == 'N'){    // hit an 'N', but subseq too small
-        right++;
-        left = right;
-      }
-
-      else {                      // normal character
-        right++;
-      }
-    }
-
-    // Whole string was 'N'-less
-    if (std::distance(left, right) >= 30) {
-        localThreadsStore.push_back(
-            (*r_data)[i].seq.substr( (left - (*r_data)[i].seq.begin()), // from left
-              std::distance(left, right) ) + "$"
-        );
     }
   }
-
-
-  // Now the reads have been processed, each reads section of processed
-  // data is stored in the thread local variable localThreadStore. 
-  // This data needs to be passed to the global store, and to stop interference
-  // (Multiple threads writing to the same location - data race)
-  // Mutex is needed. 
-
-  // Copy local thread store to global store
-
 
   std::lock_guard<std::mutex> lock(quality_processing_lock); // coordinate threads
   for (string accepted_read : localThreadsStore) {
     p_data->push_back(accepted_read);
   }
 
-  cout << "reach end of function" << endl;
+    // Link iterators to string
+    //string::iterator left = (*r_data)[i].seq.begin();
+    //string::iterator right = (*r_data)[i].seq.begin();
 
-  // when lock goes out of scope... quality_processing_lock is released
-  // And p_data can be accessed by another thread
+    //while (right != (*r_data)[i].seq.end()) {    // while not at end...
+
+    //  // if the character 'N' is hit, and the distance from left to 
+    //  // right is more than 30 store substring
+    //  if(*right == 'N' && (std::distance(left, right) >= 30)) { 
+
+    //    localThreadsStore.push_back(
+    //        (*r_data)[i].seq.substr( (left - (*r_data)[i].seq.begin()), // from left
+    //          std::distance(left, right) ) + "$"
+    //    );
+
+    //    // right now pointing at 'N', so move one char forward
+    //    right++;
+    //    // we just started a new substring sequence, so set left to right
+    //    left = right;
+    //  }
+
+    //  else if (*right == 'N'){    // hit an 'N', but subseq too small
+    //    right++;
+    //    left = right;
+    //  }
+
+    //  else {                      // normal character
+    //    right++;
+    //  }
+    //}
+
+    //// Whole string was 'N'-less
+    //if (std::distance(left, right) >= 30) {
+    //    localThreadsStore.push_back(
+    //        (*r_data)[i].seq.substr( (left - (*r_data)[i].seq.begin()), // from left
+    //          std::distance(left, right) ) + "$"
+    //    );
+    //}
 }
 
 
 
 ReadsManipulator::~ReadsManipulator() {
-  delete HealthyReads;
-  delete TumourReads;
 }
 
 
 void ReadsManipulator::printReads(){
   cout << "Healthy file reads: " << endl;
   cout << "Size of HealthyReads: " << getSize(HEALTHY) << endl;
-  for(string s : *HealthyReads) {
+  for(string s : HealthyReads) {
     cout << s << endl;
   }
   cout << endl << endl;
 
   cout << "Tumour file reads: " << endl;
   cout << "Size of TumourReads: " << getSize(TUMOUR) << endl;
-  for(string s : *TumourReads) {
+  for(string s : TumourReads) {
     cout << s << endl;
   }
 }
@@ -327,10 +315,10 @@ string::iterator ReadsManipulator::returnStartIterator(Suffix_t &suf) {
 
   string::iterator iter;
   if(suf.type == HEALTHY) { 
-    iter = (*HealthyReads)[suf.read_id].begin() + suf.offset;
+    iter = HealthyReads[suf.read_id].begin() + suf.offset;
   }
   else {  // suf.type == TUMOUR
-    iter = (*TumourReads)[suf.read_id].begin() + suf.offset;
+    iter = TumourReads[suf.read_id].begin() + suf.offset;
   }
 
   return iter;
@@ -342,10 +330,10 @@ string::iterator ReadsManipulator::returnEndIterator(Suffix_t &suf) {
 
   string::iterator iter;
   if (suf.type == HEALTHY) {
-    iter = (*HealthyReads)[suf.read_id].end();
+    iter = HealthyReads[suf.read_id].end();
   }
   else {  // suf.type == TUMOUR
-    iter = (*TumourReads)[suf.read_id].end();
+    iter = TumourReads[suf.read_id].end();
   }
 
   return iter;
@@ -354,28 +342,28 @@ string::iterator ReadsManipulator::returnEndIterator(Suffix_t &suf) {
 string ReadsManipulator::returnSuffix(Suffix_t &suf){
   // return the string assoc. with suf
   if (suf.type == HEALTHY) {
-    return (*HealthyReads)[suf.read_id].substr(suf.offset);
+    return HealthyReads[suf.read_id].substr(suf.offset);
   }
   else { // suf.type == TUMOUR
-    return (*TumourReads)[suf.read_id].substr(suf.offset);
+    return TumourReads[suf.read_id].substr(suf.offset);
   }
 }
 
 unsigned int ReadsManipulator::getSize(bool tissueType) {
   if (tissueType == HEALTHY) {
-    return HealthyReads->size();
+    return HealthyReads.size();
   }
   else {    // == TUMOUR
-    return TumourReads->size();
+    return TumourReads.size();
   }
 }
 
 string & ReadsManipulator::getReadByIndex(int index, int tissue) {
   if(tissue == HEALTHY) {
-    return (*HealthyReads)[index];
+    return HealthyReads[index];
   }
   else {  // tissue == TUMOUR || tissue == SWITCHED
-    return (*TumourReads)[index];
+    return TumourReads[index];
   }
 }
 
