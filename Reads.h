@@ -36,13 +36,13 @@ private:
   // extracts data file information from header file
   // extracts econt and minimum suffix length
 
-  std::vector<std::string> *HealthyReads;  // Container for healthy DNA reads
-  std::vector<std::string> *TumourReads;   // Container for tumour DNA reads
+  std::vector<std::string> HealthyReads;  // Container for healthy DNA reads
+  std::vector<std::string> TumourReads;   // Container for tumour DNA reads
 
 
 
   void loadFastqRawDataFromFile(std::string filename, 
-                              std::vector<std::string> *p_data);
+                              std::vector<std::string> &p_data);
   // Function loads DNA reads from filename.fasta.gz
   // either HealthyReads/TumourReads dep. on passes pointer
 
@@ -62,8 +62,6 @@ private:
 
 
 public:
- unsigned int n_healthy_reads, n_tumour_reads;
-
  // these arrays have a 1:1 mapping with the HealthyReads, TumourReads arrays
  // where their values express whether the read at the same index in 
  // the Healthy/TumourReads arrays if of LEFT or RIGHT type
