@@ -65,9 +65,6 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   cout << "Adding non-mutated alleles to blocks." << endl;
 
   extractNonMutatedAlleles();
-  cout << "Segfault upon printing " << endl;
-  printBreakPointBlocks();
-
 }
 
 
