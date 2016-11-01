@@ -22,12 +22,12 @@ KSEQ_INIT(gzFile, gzread);    // initialize .gz parser
 
 
 using namespace std;
-static const int NUM_ARGS = 4;
+static const int NUM_ARGS = 3;
 static const int HEADER_FILE_IDX = 1;
-static const int MIN_SUF_IDX = 2;
-static const int ECONT_IDX = 3;
+static const int ECONT_IDX = 2;
 static const int TERM_CHAR_CORRECTION = 1;
 static const int N_THREADS = 1;
+static const int MIN_SUFFIX_SIZE = 30;  // remove user definable variable
 
 static const double QUALITY_THRESH = 0.1; // 10% 
 static const char PHRED_20 = '5';   // lowest high quality phred score
@@ -65,7 +65,7 @@ void ReadsManipulator::parseCommandLine(int argc, char** argv,
   // file format
   if (argc != NUM_ARGS) {
     cout << "Usage: <exec> <datafile_names.txt>"
-         << " <minimum_suffix_size> <contamination_ratio>" << endl;
+         << " <contamination_ratio>" << endl;
 
     cout << endl << endl;
     cout << "Please note the the format of headerfile.txt:"
@@ -77,7 +77,7 @@ void ReadsManipulator::parseCommandLine(int argc, char** argv,
   }
 
   // save params
-  minimum_suffix_size = std::stoi(argv[MIN_SUF_IDX]) + TERM_CHAR_CORRECTION;
+  minimum_suffix_size = MIN_SUFFIX_SIZE;
   econt = std::stod(argv[ECONT_IDX]);
 
   // store data file names
@@ -207,6 +207,7 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
   // removing substrings
   double n_low_qual_bases = 0.0;
   for(int i = from; i < to; i++) {
+    cout << (*r_data)[i].seq << endl;
 
     // Begin quality processing using quality sequence. 
     // Using the substring coordinate pairs, search the corresponding
@@ -234,10 +235,12 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
 
     // else, deemed high quality
 
+    cout << "Read id: " << (*r_data)[i].id << endl;
+
     vector<string> tokenless_set;
     split_string((*r_data)[i].seq, REMOVED_TOKENS, tokenless_set); // remove tok
     for (int i=0; i < tokenless_set.size(); i++) {
-      if(tokenless_set[i].length() >= minimum_suffix_size - TERM_CHAR_CORRECTION) {
+      if(tokenless_set[i].length() >= MIN_SUFFIX_SIZE - TERM_CHAR_CORRECTION) {
         localThreadsStore.push_back(tokenless_set[i] + TERM_CHAR);
       }
     }
@@ -245,6 +248,7 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
 
   std::lock_guard<std::mutex> lock(quality_processing_lock); // coordinate threads
   for (string accepted_read : localThreadsStore) {
+    cout << accepted_read << endl;
     p_data->push_back(accepted_read);
   }
 

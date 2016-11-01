@@ -25,41 +25,32 @@ class ReadsManipulator{
   // Functions are allowed direct access to reads. 
 
 private:
+
   int minimum_suffix_size;
   double econt;
+  std::vector<std::string> HealthyReads;  // Container for healthy dataset
+  std::vector<std::string> TumourReads;   // Container for cancer dataset 
+  std::mutex quality_processing_lock;  // lock for thread copy to H/T.Reads
 
-  std::mutex quality_processing_lock; 
-  // lock for copying thread work to either HealthyReads or TumourReads
 
   void parseCommandLine(int argc, char **argv, 
-      std::vector<file_and_type> &datafiles);
+       std::vector<file_and_type> &datafiles);
   // extracts data file information from header file
   // extracts econt and minimum suffix length
-
-  std::vector<std::string> HealthyReads;  // Container for healthy DNA reads
-  std::vector<std::string> TumourReads;   // Container for tumour DNA reads
-
-
 
   void loadFastqRawDataFromFile(std::string filename, 
                               std::vector<std::string> &p_data);
   // Function loads DNA reads from filename.fasta.gz
   // either HealthyReads/TumourReads dep. on passes pointer
 
-
- void qualityProcessRawData(std::vector<fastq_t> *r_data, 
+  void qualityProcessRawData(std::vector<fastq_t> *r_data, 
                             std::vector<std::string> *p_data,
-                            int from, int to,
-                            int tid);
- // Function is the data processing workhorse called by loadFastqRawDataFromFile
- // The function is run by multiple threads, each of which gets a portion
- // or the raw data r_data to process. Processing involves ensuring 
- // quality of each read (< 10% bases have phred  score < 20)
- // and removal of 'N' character by string slicing
- // Each thread has a local store contiaining its processed reads. 
- // After processing, each thread coppies its data to either HealthyReads
- // or TumourReads
-
+                            int from, int to, int tid);
+  // Function deployed on threads. Function acts to:
+  // 1) Discard reads where number positions in a read with a value
+  // less than '5' is over 10% (QUALITY_THRESH)
+  // 2) Removes N characters spliting the read. Fragments with size < 30 are
+  // min_suffix_size
 
 public:
  // these arrays have a 1:1 mapping with the HealthyReads, TumourReads arrays
