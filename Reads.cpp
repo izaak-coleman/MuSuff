@@ -47,11 +47,9 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
   for(int i=0; i < datafiles.size(); i++) {
     cout << "Loading data from " << datafiles[i].first << "..." << endl;
     if (datafiles[i].second) { // == HEALTHY
-      cout << datafiles[i].first << endl;
       loadFastqRawDataFromFile(datafiles[i].first, HealthyReads);
     }
     else{ // filetype == TUMOUR
-      cout << datafiles[i].first << endl;;
       loadFastqRawDataFromFile(datafiles[i].first, TumourReads);
     }
   }
@@ -207,7 +205,6 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
   // removing substrings
   double n_low_qual_bases = 0.0;
   for(int i = from; i < to; i++) {
-    cout << (*r_data)[i].seq << endl;
 
     // Begin quality processing using quality sequence. 
     // Using the substring coordinate pairs, search the corresponding
@@ -235,7 +232,6 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
 
     // else, deemed high quality
 
-    cout << "Read id: " << (*r_data)[i].id << endl;
 
     vector<string> tokenless_set;
     split_string((*r_data)[i].seq, REMOVED_TOKENS, tokenless_set); // remove tok
@@ -248,7 +244,6 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
 
   std::lock_guard<std::mutex> lock(quality_processing_lock); // coordinate threads
   for (string accepted_read : localThreadsStore) {
-    cout << accepted_read << endl;
     p_data->push_back(accepted_read);
   }
 
