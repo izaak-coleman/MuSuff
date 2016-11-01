@@ -45,11 +45,11 @@ SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
   // Load suffixes into SA vector
   cout << "Starting parallelGenRadixSA:" << endl;
 
-  loadUnsortedSuffixes(min_suffix);
-  lexMergeSort();
+//  loadUnsortedSuffixes(min_suffix);
+//  lexMergeSort();
   
 //  constructTotalRadixSA(min_suffix);
-//  parallelGenRadixSA(min_suffix);
+  parallelGenRadixSA(min_suffix);
 }
 
 
