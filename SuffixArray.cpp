@@ -32,29 +32,20 @@ static const int OFFSET_IDX  = 1;
 static const int TYPE_IDX = 2;
 static const int NUM_FIELDS = 3;
 
+static const double SA_TO_GSA_SCALE = 0.625;
+
 static const string EXT = ".gsa";
 
 
 SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
-
   this->reads = &reads;      // store reads location
-
-  // init suffix
-  SA = new vector<Suffix_t>;
-
-  // Load suffixes into SA vector
   cout << "Starting parallelGenRadixSA:" << endl;
 
-//  loadUnsortedSuffixes(min_suffix);
-//  lexMergeSort();
-  
-//  constructTotalRadixSA(min_suffix);
   parallelGenRadixSA(min_suffix);
 }
 
 
 SuffixArray::~SuffixArray() {
-  delete SA;
 }
 
 // PARALLELRADIXSACONSTRUCTION FUNCS
@@ -129,19 +120,16 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
   }
 
   // Finally, load blocks into final SA in order
-  SA->reserve(radixSASize*0.8);   // slightly less as dropped <30 bp sufs
+  SA.reserve(radixSASize*SA_TO_GSA_SCALE);   // slightly less as dropped <30 bp sufs
 
   for(int i=0; i < array_blocks.size(); i++) {
     for(int j=0; j < array_blocks[i].size(); j++) {
-      SA->push_back(array_blocks[i][j]);
+      SA.push_back(array_blocks[i][j]);
     }
   }
 
-  SA->shrink_to_fit();
-
-
+  SA.shrink_to_fit();
   delete radixSA;
-
 }
 
 void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block, 
@@ -256,7 +244,7 @@ void SuffixArray::constructTotalRadixSA(uint8_t min_suffix) {
 
 
 
-  SA->reserve(healthy_SA.size() + tumour_SA.size()); // make room
+  SA.reserve(healthy_SA.size() + tumour_SA.size()); // make room
 
   bool end_of_healthy = false;
   bool end_of_tumour = false; // not for long...lets hope ;)
@@ -281,12 +269,12 @@ void SuffixArray::constructTotalRadixSA(uint8_t min_suffix) {
 
     // one has reached end, so add all of other
     if(end_of_healthy) {
-      SA->push_back(tumour_SA[tind]);
+      SA.push_back(tumour_SA[tind]);
       tind++;
     }
 
     else if(end_of_tumour) {
-      SA->push_back(healthy_SA[hind]);
+      SA.push_back(healthy_SA[hind]);
       hind++;
     }
 
@@ -301,11 +289,11 @@ void SuffixArray::constructTotalRadixSA(uint8_t min_suffix) {
 
 
       if(lexicographical_compare(t_start, t_end, h_start, h_end)) {
-        SA->push_back(tumour_SA[tind]);
+        SA.push_back(tumour_SA[tind]);
         tind++;
       }
       else {
-        SA->push_back(healthy_SA[hind]);
+        SA.push_back(healthy_SA[hind]);
         hind++;
       }
 
@@ -383,9 +371,6 @@ pair<unsigned int, unsigned int>
   unsigned int right = BSA.size();
   unsigned int left = 0;
   unsigned int mid;
-
-
-
 
   // binary search to home in on read
   while(left < right) {
@@ -482,12 +467,12 @@ void SuffixArray::merge(unsigned int from, unsigned int mid, unsigned int to) {
 
     // right finished... keep adding lefts elems
     if (!end_of_left && end_of_right) {
-      (*SA)[sa_ptr++] = (*left)[left_ptr++];
+      SA[sa_ptr++] = (*left)[left_ptr++];
     }
 
     // left finished... keep adding rights elems
     else if (!end_of_right && end_of_left) {
-      (*SA)[sa_ptr++] = (*right)[right_ptr++];
+      SA[sa_ptr++] = (*right)[right_ptr++];
     }
 
     // left lexiocographically before right element, so add left next
@@ -495,17 +480,16 @@ void SuffixArray::merge(unsigned int from, unsigned int mid, unsigned int to) {
              lexCompare((*left)[left_ptr], (*right)[right_ptr])
              ) {
 
-      (*SA)[sa_ptr++] = (*left)[left_ptr++];
+      SA[sa_ptr++] = (*left)[left_ptr++];
 
     }
     else if(!end_of_right){   // right lexicographcially before left
-      (*SA)[sa_ptr++] = (*right)[right_ptr++];
+      SA[sa_ptr++] = (*right)[right_ptr++];
     }
     else{
       cout << "merge sort error" << endl;
 
     }
-
 
     // check bounds
     if (left_ptr == left->size()) {
@@ -530,7 +514,7 @@ vector<Suffix_t>* SuffixArray::copyOf(unsigned int from, unsigned int to){
 
   // load with section
   for (unsigned int i = from; i < to; i++) {
-    SA_section_ptr->push_back( (*SA)[i] );
+    SA_section_ptr->push_back(SA[i]);
   }
   SA_section_ptr->shrink_to_fit();    // Keep size down 
   return SA_section_ptr;
@@ -555,7 +539,7 @@ bool SuffixArray::lexCompare(Suffix_t &lhs, Suffix_t &rhs) {
 }
 
 void SuffixArray::lexMergeSort() {
-   sort(0, SA->size(), 0);      // start recursive mergesort
+   sort(0, SA.size(), 0);      // start recursive mergesort
 }
 
 
@@ -569,7 +553,7 @@ void SuffixArray::lexMergeSort() {
 void SuffixArray::loadUnsortedSuffixes(uint8_t min_suffix) {
 
     // Read length is ~100 bp, and stoping at 100 - min_suffix
-    SA->reserve(    // reserve size for tumour + healthy arrays
+    SA.reserve(    // reserve size for tumour + healthy arrays
         (reads->getSize(HEALTHY) + reads->getSize(TUMOUR)) * (100 - min_suffix)
         ); 
 
@@ -587,7 +571,7 @@ void SuffixArray::loadUnsortedSuffixes(uint8_t min_suffix) {
       suf.offset     = offset;
       suf.type = HEALTHY;
       // add to SA
-      SA->push_back(suf);
+      SA.push_back(suf);
     }
   }
 
@@ -604,14 +588,13 @@ void SuffixArray::loadUnsortedSuffixes(uint8_t min_suffix) {
       suf.offset     = offset;
       suf.type = TUMOUR;
       // add to SA
-      SA->push_back(suf);
+      SA.push_back(suf);
     }
   }
 
   // SA will now nolonger change size of the program. So make as
   // compact as possible 
-  SA->shrink_to_fit();
-
+  SA.shrink_to_fit();
 }
 
 void SuffixArray::buildGSAFile(vector<Suffix_t> &GSA, string filename) {
@@ -651,7 +634,7 @@ void SuffixArray::constructGSAFromFile(vector<Suffix_t> &GSA, string filename) {
 
 
 void SuffixArray::printSuffixData() {
-  for(Suffix_t s : *SA) {
+  for(Suffix_t s : SA) {
     cout << "read_id: " << s.read_id <<  " --- " 
          << "offset: "  << s.offset  <<  " --- "
          << std::boolalpha 
@@ -661,18 +644,18 @@ void SuffixArray::printSuffixData() {
 }
 
 void SuffixArray::printSuffixes() {
-  for(Suffix_t s : *SA) {
+  for(Suffix_t s : SA) {
     cout << reads->returnSuffix(s) << ", " << reads->
       returnSuffix(s).size() << endl;  // print every suffix in T/H reads
   }
 }
 
 Suffix_t & SuffixArray::getElem(int index) {
-  return (*SA)[index];
+  return SA[index];
 }
 
 unsigned int SuffixArray::getSize() {
-  return SA->size();
+  return SA.size();
 }
 
 // End of file

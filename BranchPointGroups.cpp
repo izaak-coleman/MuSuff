@@ -37,7 +37,6 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 
 
 //  BreakpointBlocks = new vector<set<pair<bool, unsigned int> > >;
-  CancerExtraction = new set<unsigned int>;
 
 
   // Generate branchpoint groups
@@ -50,7 +49,7 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 
 
   cout << "No of extracted groups: " << 
-    CancerExtraction->size() << endl;
+    CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
 
@@ -69,7 +68,6 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 
 
 BranchPointGroups::~BranchPointGroups() {
-  delete CancerExtraction;
 }
 
 
@@ -138,7 +136,7 @@ void BranchPointGroups::generateBranchpointGroups() {
             if(SA->getElem(i).type == TUMOUR) {    // only extr. cancer reads
               read_with_mutation = SA->getElem(i).read_id;
               // SINGLE LEVEL SET block.insert(next_read);   // store reads in block
-              CancerExtraction->insert(read_with_mutation); // now storing each read rather than block
+              CancerExtraction.insert(read_with_mutation); // now storing each read rather than block
             }
          }
       }
@@ -157,7 +155,7 @@ void BranchPointGroups::generateBranchpointGroups() {
 }
 
 void BranchPointGroups::makeBreakPointBlocks(){
-  if(CancerExtraction->size() == 0) {
+  if(CancerExtraction.size() == 0) {
     cout << "No mutations were identified " << endl;
     exit(1);
   }
@@ -169,7 +167,7 @@ void BranchPointGroups::makeBreakPointBlocks(){
 
   //cout << "outputing all the reads extracted from the tree as containing"
   //     << "mutations " << endl;
-  for(unsigned int read_index : *CancerExtraction) {
+  for(unsigned int read_index : CancerExtraction) {
     
     string cancer_read = reads->getReadByIndex(read_index, TUMOUR);
     //cout << cancer_read << endl;
@@ -898,7 +896,7 @@ void BranchPointGroups::generateBranchPointGroupsWorker(unsigned int from,
   std::lock_guard<std::mutex> lock(cancer_extraction_lock); // avoid thread interference
   for(set<unsigned int> mutation_site  : localThreadExtraction) {
     for(unsigned int read_with_mutation : mutation_site) {
-      CancerExtraction->insert(read_with_mutation);
+      CancerExtraction.insert(read_with_mutation);
     }
   }
 }
