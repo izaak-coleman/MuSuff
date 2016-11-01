@@ -14,7 +14,7 @@ class SuffixArray {
 private:
 
   ReadsManipulator *reads;
-  std::vector<Suffix_t> *SA;      // pointer to suffix array
+  std::vector<Suffix_t> SA;      // pointer to suffix array
 
   void buildGSAFile(std::vector<Suffix_t> &GSA, std::string filename);
   // Writes csv equivalent of GSA, for persistent use into a .gsa file

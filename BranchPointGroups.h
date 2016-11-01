@@ -59,7 +59,7 @@ private:
   };
 
 
-  std::set<unsigned int> *CancerExtraction;
+  std::set<unsigned int> CancerExtraction;
   // CancerExtraction contains sets of ints, where each set
   // covers some mutation that was gathered, and the ints represent
   // the read_id that covered the mutation. 
