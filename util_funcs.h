@@ -16,8 +16,7 @@ enum {LEFT, RIGHT};         // distinguish, paired end type
 
 static const int MIN_SUFFIX = 30;
 
-int computeLongestCommonPrefix(Suffix_t &isuf, Suffix_t &jsuf,
-                               ReadsManipulator &reads);
+int computeLCP(Suffix_t &isuf, Suffix_t &jsuf, ReadsManipulator &reads);
 // Returns the longest common prefix between isuf and jsuf suffixes
 
 #endif

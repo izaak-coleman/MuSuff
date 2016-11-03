@@ -22,9 +22,10 @@ KSEQ_INIT(gzFile, gzread);    // initialize .gz parser
 
 
 using namespace std;
-static const int NUM_ARGS = 3;
+static const int NUM_ARGS = 4;
 static const int HEADER_FILE_IDX = 1;
 static const int ECONT_IDX = 2;
+static const int OFILE_IDX = 3;
 static const int TERM_CHAR_CORRECTION = 1;
 static const int N_THREADS = 1;
 static const int MIN_SUFFIX_SIZE = 30;  // remove user definable variable
@@ -40,6 +41,7 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
 
   vector<file_and_type> datafiles;
   parseCommandLine(argc, argv, datafiles);
+  ofile = argv[OFILE_IDX];
 
   // start reading files
   cout << "Extracting fastq data from " << datafiles.size() << " files..." << endl;
@@ -62,8 +64,8 @@ void ReadsManipulator::parseCommandLine(int argc, char** argv,
   // Only NUM_ARGS input. If fail count, explain to user options and
   // file format
   if (argc != NUM_ARGS) {
-    cout << "Usage: <exec> <datafile_names.txt>"
-         << " <contamination_ratio>" << endl;
+    cout << "Usage: <exec> <header_file>"
+         << " <contamination_ratio> <outfile_name>" << endl;
 
     cout << endl << endl;
     cout << "Please note the the format of headerfile.txt:"
@@ -371,6 +373,10 @@ int ReadsManipulator::getMinSuffixSize() {
 }
 double ReadsManipulator::getEcont() {
   return econt;
+}
+
+string ReadsManipulator::outFile() {
+  return ofile;
 }
 
 

@@ -69,27 +69,18 @@ private:
   // The unified groups are then stored in ComplementaryUnified
 
   std::vector<std::set<read_tag, read_tag_compare>> BreakPointBlocks;
-
-
   
-  bool sequenceMatch(std::string right, std::string left);
 
   void makeBreakPointBlocks();
   
 
-  void generateBranchpointGroups();
+  void extractCancerSpecificReads();
   // Function makes a pass through SA, grouping suffixes that have an LCP
 
   // of >= 30. With such an LCP, we are confident they are covering the same
   // genomic location. We can then check the econt ratio of this group, 
   // identifying if the group consists of cancer specific reads.
 
-  void generateBranchPointGroupsWorker(unsigned int to, unsigned int from);
-
-  void unifyReverseComplementaryReads();
-  // Function performs the final stage to initialze the breakpoint groups.
-  // This function merges groups that cover the same mutation, 
-  // but in different orientations
 
 
   void getSuffixesFromLeft(int seed_index, 
@@ -140,22 +131,6 @@ private:
 
 
 
-// REDUNDANT FUNCTIONS... LEFT FOR DEMO PURPOSES
-
-  void extractMutationSites();
-
-  void extractNonMutatedAllelesDeep();
-
-  void unifyComplementaryGroups();
-
-
-  void discardSingleOrientationBlocks();
-  // After breakpoint blocks have been generated remove blocks that just
-  // contain one orientation
-
-  bool thirtyBasePairOverlap(unsigned int lhs, unsigned int rhs);
-  // check if two reads share a 30bp overlap
-
 public:
 
 
@@ -175,8 +150,6 @@ public:
   void printBreakPointBlocks();
   // Prints out each of the breakpoint groups, type and read index
 
-  void printCancerExtractionGroups();
-  // prints out the cancer extraction groups from the initial extractions
 
 
   std::string generateConsensusSequence(unsigned int block_id, int &cns_offset, 
@@ -187,7 +160,36 @@ public:
 
   std::string addGaps(int ngaps);
   // Function returns a string of lenth ngaps, where gaps are '-'
-
 };
+
+
+
+//  void printCancerExtractionGroups();
+// prints out the cancer extraction groups from the initial extractions
+
+//  Redundant functions 
+//
+//  void extractMutationSites();
+//
+//  void extractNonMutatedAllelesDeep();
+//
+//  void unifyComplementaryGroups();
+//
+//
+//  void discardSingleOrientationBlocks();
+//  // After breakpoint blocks have been generated remove blocks that just
+//  // contain one orientation
+//
+//  bool thirtyBasePairOverlap(unsigned int lhs, unsigned int rhs);
+//  // check if two reads share a 30bp overlap
+//
+//bool sequenceMatch(std::string right, std::string left);
+//  void generateBranchPointGroupsWorker(unsigned int to, unsigned int from);
+//
+//  void unifyReverseComplementaryReads();
+//  // Function performs the final stage to initialze the breakpoint groups.
+//  // This function merges groups that cover the same mutation, 
+//  // but in different orientations
+
 
 #endif

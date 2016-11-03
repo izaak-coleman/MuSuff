@@ -27,7 +27,9 @@ static const int MUT_CNS = 4;
 static const int REVERSE_FLAG = 16;
 static const int FORWARD_FLAG = 0;
 
-GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads){
+
+GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
+    string outfile){
 
   this->reads = &reads;
   this->BPG = &bpgroups;
@@ -42,17 +44,17 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads)
   vector<snv_aln_info> alignments;
   call_SNV_variants(alignments, "cns_pairs.sam");
   correctReverseCompSNV(alignments);
-  outputSNVToUser(alignments, "reported_SNV.txt");
+  outputSNVToUser(alignments, outfile);
 }
 
 void GenomeMapper::callBWA() {
   cout << "Calling bwa..." << endl;
 
   string command_aln = 
-    "./bwa/bwa aln -t 16 /data/insilico_data/dataset/ref_genome/hg19.fa cns_pairs.fastq > cns_pairs.sai";
+    "./bwa/bwa aln -t 16 /data/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.fastq > cns_pairs.sai";
 
   string command_sampe = 
-    "./bwa/bwa samse /data/insilico_data/dataset/ref_genome/hg19.fa cns_pairs.sai cns_pairs.fastq > cns_pairs.sam";
+    "./bwa/bwa samse /data/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.sai cns_pairs.fastq > cns_pairs.sam";
 
   system(command_aln.c_str());  
   system(command_sampe.c_str());
@@ -126,6 +128,11 @@ void GenomeMapper::buildConsensusPairs() {
 
 void GenomeMapper::countSNVs() {
 
+  // for debugging: Writing mutations to a file
+  ofstream mut_file;
+  mut_file.open("mutations_id_by_countSNV.txt");
+
+
   for(consensus_pair &p : consensus_pairs) {
 //    for( int i=0; i < p.mutated.size();i++) {
 //      if(p.mutated[i] != p.non_mutated[i]) {
@@ -154,6 +161,7 @@ void GenomeMapper::countSNVs() {
         p.mutated[1] == p.non_mutated[1]) {
 
       p.mutations.SNV_pos.push_back(0);
+      printMutation(p.non_mutated[0], p.mutated[0], mut_file);
     }
 
     // identify SNVs occuring within the string
@@ -164,6 +172,7 @@ void GenomeMapper::countSNVs() {
 
         // then count as SNV
         p.mutations.SNV_pos.push_back(i);   // store index of variants
+      printMutation(p.non_mutated[i], p.mutated[i], mut_file);
       }
     }
 
@@ -174,8 +183,15 @@ void GenomeMapper::countSNVs() {
         p.non_mutated[p.non_mutated.size()-2]){
       
       p.mutations.SNV_pos.push_back(p.mutated.size()-1);
+      printMutation(p.non_mutated[p.non_mutated.size()-1], 
+          p.mutated[p.mutated.size()-1], mut_file);
     }
   }
+  mut_file.close();
+}
+
+void GenomeMapper::printMutation(char healthy, char cancer, ofstream &mut_file) {
+  mut_file << healthy <<  ", " << cancer << endl;
 }
 
 
