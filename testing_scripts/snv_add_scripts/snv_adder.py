@@ -2,7 +2,7 @@ import sys
 
 start_of_chr22 = 15888000
 
-def add_snvs(fa_name, n_mutations, dist):
+def add_snvs(fa_name, n_mutations, dist, after_n):
     fa_string = ""
     f = open(fa_name)
     lines = f.readlines()
@@ -22,12 +22,12 @@ def add_snvs(fa_name, n_mutations, dist):
     for i in range(n_mutations):
         mutation = ""
         if (i % 2) == 0:
-            mutation = transversion_mutation(fa_string[i*dist])
+            mutation = transversion_mutation(fa_string[after_n + i*dist])
         else:
-            mutation = transition_mutation(fa_string[i*dist])
+            mutation = transition_mutation(fa_string[after_n + i*dist])
  
-        print (i*dist) + start_of_chr22,",", fa_string[i*dist],",", mutation
-        fa_string[i*dist] = mutation
+        print (i*dist) + start_of_chr22,",", fa_string[after_n + i*dist],",", mutation
+        fa_string[after_n + i*dist] = mutation
  
  
     print header.rstrip()
@@ -45,7 +45,8 @@ def transversion_mutation(base):
         "A":"T",
         "T":"A",
         "C":"G",
-        "G":"C"
+        "G":"C",
+        "N":"N"
     }[base]
 
 def transition_mutation(base):
@@ -53,16 +54,17 @@ def transition_mutation(base):
         "A":"G",
         "G":"A",
         "T":"C",
-        "C":"T"
+        "C":"T",
+        "N":"N"
     }[base]
 
 
 
 def main():
     if (sys.argv) != 4:
-        print "useage: <exe> <fasta> <n mutations> <dist>"
+        print "useage: <exe> <fasta> <n mutations> <dist> <number_after_n>"
 
-    add_snvs(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
+    add_snvs(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
 
 
 

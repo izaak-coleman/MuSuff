@@ -28,6 +28,7 @@ private:
 
   int minimum_suffix_size;
   double econt;
+  std::string ofile;
   std::vector<std::string> HealthyReads;  // Container for healthy dataset
   std::vector<std::string> TumourReads;   // Container for cancer dataset 
   std::mutex quality_processing_lock;  // lock for thread copy to H/T.Reads
@@ -93,6 +94,9 @@ public:
 
  double getEcont();
  // returns the econt value as specified by the user at cmd-line
+
+ std::string outFile();
+ // returns the name of the final output file
 
 };
 #endif

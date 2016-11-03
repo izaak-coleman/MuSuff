@@ -7,9 +7,7 @@
 #include <iterator>
 #include <map>
 #include <algorithm>
-
 #include <limits>
-
 #include <thread>
 #include <mutex>
 
@@ -31,28 +29,19 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
                                      ReadsManipulator &_reads,
                                      double _econt) {
   econt = _econt;
-  reads = &_reads;  // store reads location
-
-  SA = &_SA;    // store  SuffixArray location
-
-
-//  BreakpointBlocks = new vector<set<pair<bool, unsigned int> > >;
+  reads = &_reads;  
+  SA = &_SA;    
 
 
   // Generate branchpoint groups
-  cout << "starting generateBranchpointGroups() " << endl;
-  START(generateBranchPointGroups);
-  generateBranchpointGroups(); 
-  END(generateBranchPointGroups);
-  TIME(generateBranchPointGroups);
-  PRINT(generateBranchPointGroups);
+  cout << "Extracting cancer-specific reads..." << endl;
+  extractCancerSpecificReads(); 
 
 
   cout << "No of extracted groups: " << 
     CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
-
 
   cout << "Generating breakpoint blocks..." << endl;
   makeBreakPointBlocks();
@@ -71,11 +60,9 @@ BranchPointGroups::~BranchPointGroups() {
 }
 
 
-void BranchPointGroups::generateBranchpointGroups() {
+void BranchPointGroups::extractCancerSpecificReads() {
   double cancer_sequences = 0, healthy_sequences = 0;
   unsigned int extension;
-
-
 
 
   // Make a pass through SA, extracting reads with cancer specific mutations
@@ -83,74 +70,43 @@ void BranchPointGroups::generateBranchpointGroups() {
   //for (int seed_index = 0; seed_index < SA->getSize()-1; seed_index++) {
   while (seed_index < SA->getSize()-1) {
    
-    // If lcp >= 30, the reads are from the same genomic location compute
-    // the boundaries for the genomic location, and calc econt to see
-    // if location is cancer specific
-    if(computeLongestCommonPrefix(SA->getElem(seed_index),
-                                  SA->getElem(seed_index+1), *reads) >= 30) {
-
-      // tally up the tissue types of seed suffix
-      if (SA->getElem(seed_index).type) {
+    // Calc econt of suffixes sharing same genomic location (assumption: 
+    // LCP >= 30). If econt below user specified value, extract group
+    if(computeLCP(SA->getElem(seed_index), SA->getElem(seed_index+1), *reads) >= 30) {
+      if (SA->getElem(seed_index).type == HEALTHY) {  // count seed
         healthy_sequences++;
-      }
-      else {  // cancer
+      } else {
         cancer_sequences++;
       }
-      //cout << reads->returnSuffix(SA->getElem(seed_index)) << endl;
 
-      // extend branchpoint group
       extension = seed_index+1;
-      while((computeLongestCommonPrefix(SA->getElem(seed_index),
-                                       SA->getElem(extension), *reads) >= 30)
-            && extension < SA->getSize()) { // Dont fall of the array
-
-        // tally tissue type of the suffixes in the group
-        //cout << reads->returnSuffix(SA->getElem(extension)) << endl;
-        if (SA->getElem(extension).type) {
+      while((computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads) >= 30)
+            && extension < SA->getSize()) {
+        if (SA->getElem(extension).type) {            // count group
           healthy_sequences++;
-        }
-        else { // cancer
+        } else { 
           cancer_sequences++;
         }
-
-        extension++;
+        extension++;                                  // iterate through group
       }
 
-      // determine if the group is cancer specific
-      // To do this, calculate contamination ration and determine
-      // if it is higher than the user defined level
-      // also, make sure the number of tumour specific reads is 
-      // > 4 (CTR>4)
-
-
       if (cancer_sequences >= 4 && 
-         ((healthy_sequences / cancer_sequences) <= econt )) { // then make group
-
-         // set up break point group
-         // SINGLE LEVEL SET set<unsigned int>  block;
-
-         // store all the indicies in the group (pointers to suffixes)
+         ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
          unsigned int read_with_mutation;
          for (unsigned int i = seed_index; i < extension; i++) {
-
             if(SA->getElem(i).type == TUMOUR) {    // only extr. cancer reads
               read_with_mutation = SA->getElem(i).read_id;
-              // SINGLE LEVEL SET block.insert(next_read);   // store reads in block
-              CancerExtraction.insert(read_with_mutation); // now storing each read rather than block
+              CancerExtraction.insert(read_with_mutation); // store read id
             }
          }
       }
-
-      seed_index = extension; // jump scan to end of group
-    }//end if
-
-    else {  //   there was no match found, so we need to increment seed_index + 1
-      seed_index++;
+      seed_index = extension; // jump seed_index to end of old group
+    } else { 
+      seed_index++;           // no match was found so move to next read
     }
 
-    healthy_sequences = 0; // reset
-    cancer_sequences = 0; // reset
-
+    healthy_sequences = 0;
+    cancer_sequences = 0; 
   }//end while
 }
 
@@ -162,16 +118,8 @@ void BranchPointGroups::makeBreakPointBlocks(){
 
  multimap<string, read_tag> mutation_grouper;
 
- //SINGLE LEVEL SET: for(set<unsigned int> extr_group : *CancerExtraction) {
- //SINGLE LEVEL SET:    for(unsigned int read_index : extr_group) {        // loop through each reas
-
-  //cout << "outputing all the reads extracted from the tree as containing"
-  //     << "mutations " << endl;
   for(unsigned int read_index : CancerExtraction) {
-    
     string cancer_read = reads->getReadByIndex(read_index, TUMOUR);
-    //cout << cancer_read << endl;
-
     for(int i=0; i < cancer_read.size()-30; i++) {    // make 30bp fwd/rev
 
       pair<string, read_tag> fwd_key_val, rev_key_val;
@@ -208,12 +156,6 @@ void BranchPointGroups::makeBreakPointBlocks(){
     }
  }
 
- //for(auto it = mutation_grouper.begin(); it != mutation_grouper.end(); it++) {
- //  cout << it->first << endl;
- //  cout << it->second.read_id << endl;
- //}
-
-
 
   // now loaded into map, extract blocks
   set<read_tag, read_tag_compare> block;
@@ -223,9 +165,8 @@ void BranchPointGroups::makeBreakPointBlocks(){
   while(it != std::prev(mutation_grouper.end())){
     bool left_mate = false, right_mate = false;
 
-    if(it->first == std::next(it)->first) {
+    if(it->first == std::next(it)->first) { // then same genomic location
 
-      // seed 
       string seed = it->first;
       block.insert(it->second);           
 
@@ -554,12 +495,12 @@ void BranchPointGroups::extendBlock(int seed_index,
   int left_of_seed = 0, right_of_seed = 0;
 
   if (seed_index != 0 ){
-    left_of_seed = computeLongestCommonPrefix(SA->getElem(seed_index),
+    left_of_seed = computeLCP(SA->getElem(seed_index),
                      SA->getElem(seed_index-1), *reads);
   }
 
   if(seed_index != SA->getSize()-1) {
-    right_of_seed = computeLongestCommonPrefix(SA->getElem(seed_index), 
+    right_of_seed = computeLCP(SA->getElem(seed_index), 
                      SA->getElem(seed_index+1), *reads);
   }
 
@@ -583,7 +524,7 @@ void BranchPointGroups::getSuffixesFromLeft(int seed_index,
 
   while( // lcps are same AND not out of bounds AND not already in group...
       left_arrow > 0           
-      && computeLongestCommonPrefix(SA->getElem(left_arrow),
+      && computeLCP(SA->getElem(left_arrow),
                                     SA->getElem(seed_index), *reads) >= 30) {
 
     // ...add read pointed to by suffix to the block
@@ -621,7 +562,7 @@ void BranchPointGroups::getSuffixesFromRight(int seed_index,
 
   while ( // lcps are the same AND not out of bounds AND not already in group...
       right_arrow < (SA->getSize()-1)         // max LCP size is one less than SA
-      && computeLongestCommonPrefix(SA->getElem(right_arrow), 
+      && computeLCP(SA->getElem(right_arrow), 
                                     SA->getElem(seed_index), *reads) >= 30 ) {
 
     // ...add read pointed to by suffix to the block
@@ -773,133 +714,133 @@ void BranchPointGroups::printBreakPointBlocks() {
 }
 
 
-void BranchPointGroups::extractMutationSites() {
-
-  unsigned int elements_per_thread = (SA->getSize()  / N_THREADS);
-  vector<thread> workers;
-
-  unsigned int from=0, to= elements_per_thread;
-  for(int i=0; i < N_THREADS; i++) {
-    workers.push_back(
-      std::thread(&BranchPointGroups::generateBranchPointGroupsWorker, 
-        this, from, to)
-    );
-
-    from = to;
-    if(i == N_THREADS -2) {
-      to = SA->getSize();
-    }
-    else {
-      to += elements_per_thread;
-    }
-  }
-
-  for(auto &thread : workers) {
-      thread.join();
-  }
-}
-
-void BranchPointGroups::generateBranchPointGroupsWorker(unsigned int from, 
-                                                        unsigned int to) {
-
-  set<set<unsigned int>> localThreadExtraction;
-  double cancer_sequences = 0, healthy_sequences = 0;
-  unsigned int extension;
-
-
-  // Make a pass through SA, extracting reads with cancer specific mutations
-  unsigned int seed_index = from;
-  //for (int seed_index = 0; seed_index < SA->getSize()-1; seed_index++) {
-  while (seed_index < to-1) {
-//      cout << reads->returnSuffix(SA->getElem(seed_index)) << endl;
-   
-    // If lcp == 30, the reads are from the same genomic location compute
-    // the boundaries for the genomic location, and calc econt to see
-    // if location is cancer specific
-    if(computeLongestCommonPrefix(SA->getElem(seed_index),
-                                  SA->getElem(seed_index+1), *reads) >= 30) {
-
-      // tally up the tissue types of seed suffix
-      if (SA->getElem(seed_index).type) {
-        healthy_sequences++;
-      }
-      else {  // cancer
-        cancer_sequences++;
-      }
-
-      // extend branchpoint group
-      extension = seed_index+1;
-      while((computeLongestCommonPrefix(SA->getElem(seed_index),
-                                       SA->getElem(extension), *reads) >= 30)
-            ) {
-
-        // tally tissue type of the suffixes in the group
-        if (SA->getElem(extension).type) {
-          healthy_sequences++;
-        }
-        else { // cancer
-          cancer_sequences++;
-        }
-
-        extension++;
-        if(extension == SA->getSize()) {break;}
-      }
-
-
-      // determine if the group is cancer specific
-      // To do this, calculate contamination ration and determine
-      // if it is higher than the user defined level
-      // also, make sure the number of tumour specific reads is 
-      // > 4 (CTR>4)
-
-      //cout << "HealthySequences: " << healthy_sequences << endl;
-      //cout << "cancer_sequences: " << cancer_sequences << endl;
-      //cout << "Ratio: " << healthy_sequences / cancer_sequences << endl;
-      //cout << boolalpha <<  ((healthy_sequences / cancer_sequences)  < econt) <<
-      //  endl;
-      //cout << "ECONT: " << econt << endl;
-
-      if (cancer_sequences >= 4 && 
-         ((healthy_sequences / cancer_sequences) < econt )) { // then make group
-
-
-          // set up break point group
-          set<unsigned int>  block;
-
-          // store all the indicies in the group (pointers to suffixes)
-          unsigned int next_read;
-          for (unsigned int i = seed_index; i < extension; i++) {
-
-            if(SA->getElem(i).type == TUMOUR) {
-              next_read = SA->getElem(i).read_id;
-              block.insert(next_read);   // store reads in block
-            }
-          }
-          localThreadExtraction.insert(block); // store block
-      }
-
-      seed_index = extension; // jump scan to end of group
-    }//end if
-
-    else {  //   there was no match found, so we need to increment seed_index + 1
-      seed_index++;
-    }
-
-    healthy_sequences = 0; // reset
-    cancer_sequences = 0; // reset
-
-  }//end while
-
-  // After extraction, threads need to load their data into global CancerExtractionSet
-
-
-  std::lock_guard<std::mutex> lock(cancer_extraction_lock); // avoid thread interference
-  for(set<unsigned int> mutation_site  : localThreadExtraction) {
-    for(unsigned int read_with_mutation : mutation_site) {
-      CancerExtraction.insert(read_with_mutation);
-    }
-  }
-}
+//void BranchPointGroups::extractMutationSites() {
+//
+//  unsigned int elements_per_thread = (SA->getSize()  / N_THREADS);
+//  vector<thread> workers;
+//
+//  unsigned int from=0, to= elements_per_thread;
+//  for(int i=0; i < N_THREADS; i++) {
+//    workers.push_back(
+//      std::thread(&BranchPointGroups::generateBranchPointGroupsWorker, 
+//        this, from, to)
+//    );
+//
+//    from = to;
+//    if(i == N_THREADS -2) {
+//      to = SA->getSize();
+//    }
+//    else {
+//      to += elements_per_thread;
+//    }
+//  }
+//
+//  for(auto &thread : workers) {
+//      thread.join();
+//  }
+//}
+//
+//void BranchPointGroups::generateBranchPointGroupsWorker(unsigned int from, 
+//                                                        unsigned int to) {
+//
+//  set<set<unsigned int>> localThreadExtraction;
+//  double cancer_sequences = 0, healthy_sequences = 0;
+//  unsigned int extension;
+//
+//
+//  // Make a pass through SA, extracting reads with cancer specific mutations
+//  unsigned int seed_index = from;
+//  //for (int seed_index = 0; seed_index < SA->getSize()-1; seed_index++) {
+//  while (seed_index < to-1) {
+////      cout << reads->returnSuffix(SA->getElem(seed_index)) << endl;
+//   
+//    // If lcp == 30, the reads are from the same genomic location compute
+//    // the boundaries for the genomic location, and calc econt to see
+//    // if location is cancer specific
+//    if(computeLCP(SA->getElem(seed_index),
+//                                  SA->getElem(seed_index+1), *reads) >= 30) {
+//
+//      // tally up the tissue types of seed suffix
+//      if (SA->getElem(seed_index).type) {
+//        healthy_sequences++;
+//      }
+//      else {  // cancer
+//        cancer_sequences++;
+//      }
+//
+//      // extend branchpoint group
+//      extension = seed_index+1;
+//      while((computeLCP(SA->getElem(seed_index),
+//                                       SA->getElem(extension), *reads) >= 30)
+//            ) {
+//
+//        // tally tissue type of the suffixes in the group
+//        if (SA->getElem(extension).type) {
+//          healthy_sequences++;
+//        }
+//        else { // cancer
+//          cancer_sequences++;
+//        }
+//
+//        extension++;
+//        if(extension == SA->getSize()) {break;}
+//      }
+//
+//
+//      // determine if the group is cancer specific
+//      // To do this, calculate contamination ration and determine
+//      // if it is higher than the user defined level
+//      // also, make sure the number of tumour specific reads is 
+//      // > 4 (CTR>4)
+//
+//      //cout << "HealthySequences: " << healthy_sequences << endl;
+//      //cout << "cancer_sequences: " << cancer_sequences << endl;
+//      //cout << "Ratio: " << healthy_sequences / cancer_sequences << endl;
+//      //cout << boolalpha <<  ((healthy_sequences / cancer_sequences)  < econt) <<
+//      //  endl;
+//      //cout << "ECONT: " << econt << endl;
+//
+//      if (cancer_sequences >= 4 && 
+//         ((healthy_sequences / cancer_sequences) < econt )) { // then make group
+//
+//
+//          // set up break point group
+//          set<unsigned int>  block;
+//
+//          // store all the indicies in the group (pointers to suffixes)
+//          unsigned int next_read;
+//          for (unsigned int i = seed_index; i < extension; i++) {
+//
+//            if(SA->getElem(i).type == TUMOUR) {
+//              next_read = SA->getElem(i).read_id;
+//              block.insert(next_read);   // store reads in block
+//            }
+//          }
+//          localThreadExtraction.insert(block); // store block
+//      }
+//
+//      seed_index = extension; // jump scan to end of group
+//    }//end if
+//
+//    else {  //   there was no match found, so we need to increment seed_index + 1
+//      seed_index++;
+//    }
+//
+//    healthy_sequences = 0; // reset
+//    cancer_sequences = 0; // reset
+//
+//  }//end while
+//
+//  // After extraction, threads need to load their data into global CancerExtractionSet
+//
+//
+//  std::lock_guard<std::mutex> lock(cancer_extraction_lock); // avoid thread interference
+//  for(set<unsigned int> mutation_site  : localThreadExtraction) {
+//    for(unsigned int read_with_mutation : mutation_site) {
+//      CancerExtraction.insert(read_with_mutation);
+//    }
+//  }
+//}
 
 //void BranchPointGroups::printCancerExtractionGroups() {
 //  int i=1;

@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
   // BG construction called in constructor
   BranchPointGroups BG(SA, reads, reads.getEcont());
 
-  GenomeMapper mapper(BG, reads);
+  GenomeMapper mapper(BG, reads, reads.outFile());
   return 0;
 
 }

@@ -7,8 +7,7 @@
 
 using namespace std;
 
-int computeLongestCommonPrefix(Suffix_t &isuf, Suffix_t &jsuf, 
-                               ReadsManipulator &reads) {
+int computeLCP(Suffix_t &isuf, Suffix_t &jsuf, ReadsManipulator &reads) {
 
   // Get suffix pointers in reads
   string::iterator isuf_iter  = reads.returnStartIterator(isuf);

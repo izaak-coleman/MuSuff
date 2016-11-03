@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include "BranchPointGroups.h"
 #include "Reads.h"
@@ -84,10 +85,12 @@ private:
 
 
 public:
-    GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads);
+    GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
+        std::string outfile);
 
 
     void printConsensusPairs();
     // print out each mutated and non mutated string
+    void printMutation(char healthy, char cancer, std::ofstream &mut_file);
 };
 #endif
