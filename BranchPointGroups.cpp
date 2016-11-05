@@ -22,7 +22,7 @@
 
 using namespace std;
 static const int N_THREADS = 16;
-static const int CONSENSUS_MIN = 4;
+static const int TRIM_VALUE = 4;
 
 
 BranchPointGroups::BranchPointGroups(SuffixArray &_SA, 
@@ -156,7 +156,6 @@ void BranchPointGroups::makeBreakPointBlocks(){
     }
  }
 
-
   // now loaded into map, extract blocks
   set<read_tag, read_tag_compare> block;
 
@@ -280,7 +279,7 @@ void BranchPointGroups::extractNonMutatedAlleles() {
         //cout << "A previously identified sequence no longer exists" << endl;
       }
       else {
-        extendBlock(index, block, tag.orientation);
+        extendBlock(index, block, tag.orientation); // h reads assigned to same or
       }
 
       // update search switches
@@ -296,10 +295,7 @@ void BranchPointGroups::extractNonMutatedAlleles() {
     searched_reverse = false;
 
   }
-
-
 }
-
 
 string BranchPointGroups::generateConsensusSequence(unsigned int block_id, 
     int &cns_offset, bool tissue_type, string &freq_string) {
@@ -323,21 +319,18 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
   }
 
   // perform offset conversion, converting LEFT offsets to RIGHT
-  int max_offset = 0, right_freq = 0, left_freq = 0;
+  int max_offset = 0;
   int min_offset = numeric_limits<int>::max();
 
+  // convert the offset indexes from LEFT to equivalent index in RIGHT
   for(read_tag &tag : type_subset) {
     if (tag.orientation == LEFT) {
-      left_freq++;
       int read_size = reads->getReadByIndex(tag.read_id,
           tag.tissue_type).size();
       tag.offset = (read_size - (tag.offset + 31));
     }
-    else {
-      right_freq++;
-    }
 
-    if(tag.offset > max_offset) {
+    if(tag.offset > max_offset) {   // also record max and min offset
       max_offset = tag.offset;
     }
     if(tag.offset < min_offset) {
@@ -350,17 +343,10 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
     min_offset = 0;
   }
 
-  //cout << "l freq " << left_freq << endl;
-  //cout << "r freq " << right_freq << endl;
-
-
-
   // align_counter is used for the consensus count
   vector<string> aligned_block;
   vector<vector<int>> align_counter(4, 
       vector<int>((max_offset + 80 - min_offset), 0));
-
-  //cout << "size of arrays " << max_offset + 80 - min_offset << endl;
 
 
   for(read_tag tag : type_subset) {
@@ -413,19 +399,17 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
 
   int n_skipped_start_pos=0;
   bool hit_consensus_min = false;
-  freq_string = "";
-  for(int pos=0; pos < align_counter[0].size(); pos++) {
+  for (int pos=0; pos < align_counter[0].size(); pos++) {
 
     // only start when the number of reads aligned at that position
     /// is >= 4
 
     int nreads=0;
-    for(int base=0; base < 4; base++) {
+    for (int base=0; base < 4; base++) {
       nreads += align_counter[base][pos];
     }
-    freq_string += to_string(nreads) + ", ";
-    if(nreads < CONSENSUS_MIN) {
-      if(!hit_consensus_min) {
+    if (nreads < TRIM_VALUE) {
+      if (!hit_consensus_min) {
         n_skipped_start_pos++;		// need to nibble off skipped positions from cns offset
       }
       continue;
@@ -442,6 +426,9 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
       if (align_counter[base][pos] > maxVal) {	// plus n_skipped_start_pos?
         maxVal = align_counter[base][pos];
         maxInd = base;
+      }
+      else if (align_counter[base][pos] == maxVal) {
+        cout << "**tie**" << endl;
       }
     }
 
@@ -461,11 +448,11 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
     }
   }
 
-  //for(string s : aligned_block) { // SHOW ALIGNED BLOCK
-  //  cout << s << endl;
-  //}
-  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  //cout << cns << endl << endl << endl;
+  for(string s : aligned_block) { // SHOW ALIGNED BLOCK
+    cout << s << endl;
+  }
+  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  cout << cns << endl << endl << endl;
   
 
   // pass out the offset value
