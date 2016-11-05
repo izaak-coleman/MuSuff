@@ -1,3 +1,4 @@
+// GenomeMapper.cpp
 #include <vector>
 #include <iostream>
 #include <string>
@@ -72,9 +73,11 @@ void GenomeMapper::buildConsensusPairs() {
 
     // generate consensus sequences
     consensus_pair next_pair;
+    cout << "Tumour data" << endl;
     next_pair.mutated = BPG->generateConsensusSequence(i,
       next_pair.mut_offset, TUMOUR, next_pair.read_freq_m);
 
+    cout << "Healhty data" << endl;
     next_pair.non_mutated = BPG->generateConsensusSequence(i,
         next_pair.nmut_offset, HEALTHY, next_pair.read_freq_nm);
 
@@ -109,14 +112,14 @@ void GenomeMapper::buildConsensusPairs() {
       int pos_to_cleave = next_pair.mutated.size() -
         next_pair.non_mutated.size();
 
-      next_pair.mutated.erase(next_pair.mutated.size()-1-pos_to_cleave,
+      next_pair.mutated.erase(next_pair.mutated.size()-pos_to_cleave,
           pos_to_cleave);
     }
     else {
       int pos_to_cleave = next_pair.non_mutated.size() -
         next_pair.mutated.size();
 
-      next_pair.non_mutated.erase(next_pair.non_mutated.size()-1-pos_to_cleave,
+      next_pair.non_mutated.erase(next_pair.non_mutated.size()-pos_to_cleave,
           pos_to_cleave);
     }
 
