@@ -428,7 +428,7 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
         maxInd = base;
       }
       else if (align_counter[base][pos] == maxVal) {
-        cout << "**tie**" << endl;
+        //cout << "**tie**" << endl;
       }
     }
 
@@ -448,16 +448,15 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
     }
   }
 
-  for(string s : aligned_block) { // SHOW ALIGNED BLOCK
-    cout << s << endl;
-  }
-  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  cout << cns << endl << endl << endl;
+  //for(string s : aligned_block) { // SHOW ALIGNED BLOCK
+  //  cout << s << endl;
+  //}
+  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  //cout << cns << endl << endl << endl;
   
 
   // pass out the offset value
   cns_offset = (max_offset - n_skipped_start_pos);
-  //cout << " max offset " << max_offset << endl;
 
   return cns;
 }

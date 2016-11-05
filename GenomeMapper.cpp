@@ -73,11 +73,9 @@ void GenomeMapper::buildConsensusPairs() {
 
     // generate consensus sequences
     consensus_pair next_pair;
-    cout << "Tumour data" << endl;
     next_pair.mutated = BPG->generateConsensusSequence(i,
       next_pair.mut_offset, TUMOUR, next_pair.read_freq_m);
 
-    cout << "Healhty data" << endl;
     next_pair.non_mutated = BPG->generateConsensusSequence(i,
         next_pair.nmut_offset, HEALTHY, next_pair.read_freq_nm);
 
