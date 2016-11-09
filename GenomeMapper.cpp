@@ -24,6 +24,10 @@ static const int SSV = 2;
 static const int LSV = 3;
 static const int MUT_CNS = 4;
 
+static const int SNV_THRES = 2; // in insilico data set,
+// snvs have dist >100 apart, therefore, if more than two
+// snvs are identified, this must be due to indel
+
 
 static const int REVERSE_FLAG = 16;
 static const int FORWARD_FLAG = 0;
@@ -39,6 +43,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   buildConsensusPairs();
 
   countSNVs();
+  printConsensusPairs();
   constructSNVFastqData();
   callBWA();
 
@@ -63,6 +68,67 @@ void GenomeMapper::callBWA() {
   cout << "Finished bwa call." << endl;
 }
 
+//void GenomeMapper::buildConsensusPairs() {
+//
+//  consensus_pairs.reserve(BPG->getSize()); // make room
+//
+//  // generate consensus pair for each breakpoint block
+//  // and then add starting gaps to align sequence pair
+//  for (int i=0; i < BPG->getSize(); ++i) {
+//
+//    // generate consensus sequences
+//    consensus_pair pair;
+//    pair.healthy_ohang_right = 0;
+//    pair.healthy_ohang_left  = 0; // assume strings cover exact same location
+//
+//
+//    pair.mutated = BPG->generateConsensusSequence(i,
+//      pair.mut_offset, TUMOUR, pair.read_freq_m);
+//
+//    pair.non_mutated = BPG->generateConsensusSequence(i,
+//        pair.nmut_offset, HEALTHY, pair.read_freq_nm);
+//
+//    // discard sequences that do not contain both a non-mutated
+//    // and mutated cns pair
+//    if(pair.mutated == "\0" || pair.non_mutated == "\0") {
+//      continue; 
+//    }
+//
+//
+//    // Trim portions of the cancer consensus sequence that are
+//    // longer than the healthy consensus sequence;
+//    // these have nothing to be compared to 
+//
+//    // head trim
+//    if (pair.mut_offset > pair.nmut_offset) {
+//      pair.mutated.erase(0, pair.mut_offset - pair.nmut_offset);
+//      pair.read_freq_m.erase(0, pair.mut_offset - pair.nmut_offset);
+//    }
+//    else if (pair.mut_offset < pair.nmut_offset) {
+//      pair.healthy_ohang_left = pair.nmut_offset - pair.mut_offset;
+//    }
+//    // tail trim
+//    if (pair.mutated.size() > 
+//        (pair.non_mutated.size() - pair.healthy_ohang_left)) {
+//      int dist = pair.mutated.size() - (pair.non_mutated.size() - 
+//          pair.healthy_ohang_left);
+//      pair.mutated.erase(pair.mutated.size()-dist, dist);
+//    }
+//    else if (pair.mutated.size() < (pair.non_mutated.size() -
+//          pair.healthy_ohang_left)) {
+//      pair.healthy_ohang_right = (pair.non_mutated.size() -
+//          pair.healthy_ohang_left) - pair.mutated.size();
+//    }
+//
+//    consensus_pairs.push_back(pair);
+//  }
+//}
+
+
+// This buildConsensensusPairs()0.0.0
+// This unneccassarily trimmed the healthy consensus sequence.
+// buildConsensusPairs() 0.0.1 does not trim healthy cns unnecasserily
+
 void GenomeMapper::buildConsensusPairs() {
 
   consensus_pairs.reserve(BPG->getSize()); // make room
@@ -73,23 +139,26 @@ void GenomeMapper::buildConsensusPairs() {
 
     // generate consensus sequences
     consensus_pair next_pair;
+    cout << "Cancer block: " << endl;
     next_pair.mutated = BPG->generateConsensusSequence(i,
       next_pair.mut_offset, TUMOUR, next_pair.read_freq_m);
 
+    cout << "Healthy block: " << endl;
     next_pair.non_mutated = BPG->generateConsensusSequence(i,
         next_pair.nmut_offset, HEALTHY, next_pair.read_freq_nm);
+
 
     // discard sequences that do not contain both a non-mutated
     // and mutated cns pair
     if(next_pair.mutated == "\0" || next_pair.non_mutated == "\0") {
-      continue;
+      continue; 
     }
 
 
     // cleave consensus sequences, so they
     // align (by cleaving start), and remove hanging tails (cleaving end)
 
-    if(next_pair.mut_offset < next_pair.nmut_offset) {
+    if (next_pair.mut_offset < next_pair.nmut_offset) {
       //next_pair.mutated.insert(0, BPG->addGaps(next_pair.nmut_offset -
       //                    next_pair.mut_offset));
 
@@ -135,57 +204,47 @@ void GenomeMapper::countSNVs() {
 
 
   for(consensus_pair &p : consensus_pairs) {
-//    for( int i=0; i < p.mutated.size();i++) {
-//      if(p.mutated[i] != p.non_mutated[i]) {
-//        p.mutations.SNV_pos.push_back(i);
-//      }  
-//    }
-    bool discard = false; 
     // remove any consensus pairs that
     // do not contain SNV style sequence differences
     // these could result from indels
 
-    for(int i=0; i < p.mutated.size() - 1; i++){
-      if (p.mutated[i] != p.non_mutated[i] && 
-	  p.mutated[i+1] != p.non_mutated[i+1]) {
-          discard = true;
-      }
-    }
-    
-    if(discard) {
-      continue;
-    }
-
-
+    int snvs_between_cns = 0;
     // identify SNV occuring at the start of the string
-    if (p.mutated[0] != p.non_mutated[0] && 
-        p.mutated[1] == p.non_mutated[1]) {
+    if (p.mutated[0] != p.non_mutated[0+p.healthy_ohang_left] && 
+        p.mutated[1] == p.non_mutated[1+p.healthy_ohang_left]) {
 
       p.mutations.SNV_pos.push_back(0);
-      printMutation(p.non_mutated[0], p.mutated[0], mut_file);
+      snvs_between_cns++;
+      printMutation(p.non_mutated[0+p.healthy_ohang_left], p.mutated[0], mut_file);
     }
 
     // identify SNVs occuring within the string
     for(int i=1; i < p.mutated.size() - 1; i++) {
-      if(p.mutated[i] != p.non_mutated[i] &&        // char diffrent but
-          p.mutated[i+1] == p.non_mutated[i+1] &&   // ...next char same
-          p.mutated[i-1] == p.non_mutated[i-1]) {   // ...prev char same
+      if(p.mutated[i] != p.non_mutated[i+p.healthy_ohang_left] &&        // char diffrent but
+          p.mutated[i+1] == p.non_mutated[i+1+p.healthy_ohang_left] &&   // ...next char same
+          p.mutated[i-1] == p.non_mutated[i-1+p.healthy_ohang_left]) {   // ...prev char same
 
         // then count as SNV
         p.mutations.SNV_pos.push_back(i);   // store index of variants
-      printMutation(p.non_mutated[i], p.mutated[i], mut_file);
+        printMutation(p.non_mutated[i+p.healthy_ohang_left], p.mutated[i], mut_file);
+        snvs_between_cns++;
       }
     }
 
     // identify SNV occuring at the very end of the string
     if (p.mutated[p.mutated.size()-1] !=
-        p.non_mutated[p.non_mutated.size()-1] &&
+        p.non_mutated[p.non_mutated.size()-1-p.healthy_ohang_right] &&
         p.mutated[p.mutated.size()-2] == 
-        p.non_mutated[p.non_mutated.size()-2]){
+        p.non_mutated[p.non_mutated.size()-2-p.healthy_ohang_right]){
       
       p.mutations.SNV_pos.push_back(p.mutated.size()-1);
-      printMutation(p.non_mutated[p.non_mutated.size()-1], 
+      printMutation(p.non_mutated[p.non_mutated.size()-1-p.healthy_ohang_right], 
           p.mutated[p.mutated.size()-1], mut_file);
+        snvs_between_cns++;
+    }
+
+    if (snvs_between_cns > 2) {   // should be no more than two snvs
+      p.mutations.SNV_pos.clear();
     }
   }
   mut_file.close();
@@ -202,10 +261,6 @@ void GenomeMapper::printConsensusPairs() {
     cout << cns_pair.mutated << endl;
     cout << "Healthy Sequence:" << endl;
     cout << cns_pair.non_mutated << endl;
-    cout << "FreqMut String:" << endl;
-    cout << cns_pair.read_freq_m << endl;
-    cout << "FreqHeal String:" << endl;
-    cout << cns_pair.read_freq_nm << endl;
 
     cout << "SNV locations" << endl;
     for(int pos : cns_pair.mutations.SNV_pos) {
@@ -441,3 +496,4 @@ void GenomeMapper::outputSNVToUser(vector<snv_aln_info> &alignments, string repo
     i++;
   }
 }
+

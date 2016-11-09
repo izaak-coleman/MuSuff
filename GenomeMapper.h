@@ -41,6 +41,10 @@ private:
     int mut_offset;
     int nmut_offset;
     mutation_classes mutations;
+
+    // used to compare with cancer cns without trimming
+    int healthy_ohang_right;    
+    int healthy_ohang_left;
   };
 
 

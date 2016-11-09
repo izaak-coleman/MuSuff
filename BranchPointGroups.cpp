@@ -193,7 +193,7 @@ void BranchPointGroups::makeBreakPointBlocks(){
       }    
     
       // only extract double orientation groups with CTR 4
-      if(/*left_mate & right_mate && */ block.size() >= 4) {
+      if(/*left_mate & right_mate &&*/  block.size() >= 4 ) {
         BreakPointBlocks.push_back(block);
       }
 
@@ -231,6 +231,7 @@ string BranchPointGroups::reverseComplementString(string s){
       case 'C':{
         revcomp += "G";
         break;
+
       }
 
       case 'G':{
@@ -315,6 +316,8 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
   }
 
   if(type_subset.size() == 0) {   // no seq. of tissue type, cannot be mapped
+    cout << "Failed to extract any of type " << ((tissue_type) ? "H" : "C") <<
+      endl;
     return "\0";
   }
 
@@ -448,11 +451,11 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
     }
   }
 
-  //for(string s : aligned_block) { // SHOW ALIGNED BLOCK
-  //  cout << s << endl;
-  //}
-  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  //cout << cns << endl << endl << endl;
+  for(string s : aligned_block) { // SHOW ALIGNED BLOCK
+    cout << s << endl;
+  }
+  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  cout << cns << endl << endl << endl;
   
 
   // pass out the offset value
