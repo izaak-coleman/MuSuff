@@ -37,14 +37,12 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
 
 
   buildConsensusPairs();
-
-  countSNVs();
   constructSNVFastqData();
   callBWA();
 
   vector<snv_aln_info> alignments;
-  call_SNV_variants(alignments, "cns_pairs.sam");
-  correctReverseCompSNV(alignments);
+  parseSamFile(alignments, "cns_pairs.sam");
+  identifySNVs(alignments);
   outputSNVToUser(alignments, outfile);
 }
 
@@ -262,7 +260,7 @@ string GenomeMapper::generateParseString(mutation_classes &m) {
 
 // samparser content
 
-void GenomeMapper::call_SNV_variants(vector<snv_aln_info> &alignments, string filename) {
+void GenomeMapper::parseSamFile(vector<snv_aln_info> &alignments, string filename) {
   ifstream snv_sam(filename);	// open alignment file
   
   boost::regex header("(@).*");		// matches header
@@ -320,6 +318,12 @@ void GenomeMapper::call_SNV_variants(vector<snv_aln_info> &alignments, string fi
       snv_positions = snv_positions.substr(snv_positions.find_first_of(";") + 1);
       al_info.SNV_pos.push_back(stoi(pos));
     }
+
+    // DEV RULE: clearing al_info.SNV_pos to build from scrach using
+    // post snv identification design
+    al_info.SNV_pos.clear(); // should be empty anyways as no call to countSNVs()
+
+
     alignments.push_back(al_info);
   }
 
@@ -401,6 +405,53 @@ void GenomeMapper::correctReverseCompSNV(vector<snv_aln_info> &alignments) {
     }
   }
 }
+
+void GenomeMapper::identifySNVs(vector<snv_aln_info> &alignments) {
+  for (snv_aln_info &a : alignments) {
+      if(a.flag == FORWARD_FLAG) {
+        countSNVs(a);
+      }
+      else if (a.flag == REVERSE_FLAG) {
+        a.mutated_cns = reverseComplementString(a.mutated_cns); 
+        countSNVs(a);
+      }
+  }
+}
+void GenomeMapper::countSNVs(snv_aln_info &alignment) {
+ 
+  // indel signature
+  for(int i=0; i < alignment.mutated_cns.size() - 1; i++) {
+    if (alignment.mutated_cns[i] != alignment.non_mutated_cns[i] &&
+        alignment.mutated_cns[i+1] != alignment.non_mutated_cns[i+1]) {
+      continue;
+    }
+  }
+
+  // SNV at start
+  if (alignment.mutated_cns[0] != alignment.non_mutated_cns[0] &&
+      alignment.mutated_cns[1] == alignment.non_mutated_cns[1]) {
+      alignment.SNV_pos.push_back(0);   
+  }
+
+  // SNV at end 
+  int cns_len = alignment.mutated_cns.size();
+  if (alignment.mutated_cns[cns_len-1] != alignment.non_mutated_cns[cns_len-1]
+      && alignment.mutated_cns[cns_len-2] == alignment.non_mutated_cns[cns_len-2]) {
+      alignment.SNV_pos.push_back(cns_len-1);
+  }
+
+  // SNV in body
+
+  for (int i=1; i < alignment.mutated_cns.size() - 1; i++) {
+    if (alignment.mutated_cns[i-1] != alignment.non_mutated_cns[i-1] &&
+        alignment.mutated_cns[i] == alignment.non_mutated_cns[i] &&
+        alignment.mutated_cns[i+1] != alignment.non_mutated_cns[i+1] ) {
+      alignment.SNV_pos.push_back(i);
+    }
+  }
+}
+
+
 
 bool GenomeMapper::compareSNVLocations(const single_snv &a, const single_snv &b) {
   return a.position < b.position;
