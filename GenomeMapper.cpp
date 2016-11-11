@@ -43,6 +43,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   vector<snv_aln_info> alignments;
   parseSamFile(alignments, "cns_pairs.sam");
   identifySNVs(alignments);
+  printAllAlignments(alignments);
   outputSNVToUser(alignments, outfile);
 }
 
@@ -71,11 +72,9 @@ void GenomeMapper::buildConsensusPairs() {
 
     // generate consensus sequences
     consensus_pair next_pair;
-    cout << "Tumour data" << endl;
     next_pair.mutated = BPG->generateConsensusSequence(i,
       next_pair.mut_offset, TUMOUR, next_pair.read_freq_m);
 
-    cout << "Healhty data" << endl;
     next_pair.non_mutated = BPG->generateConsensusSequence(i,
         next_pair.nmut_offset, HEALTHY, next_pair.read_freq_nm);
 
@@ -221,9 +220,9 @@ void GenomeMapper::constructSNVFastqData() {
   snv_fq.open("cns_pairs.fastq");
 
   for (consensus_pair &cns_pair : consensus_pairs) {
-    if(cns_pair.mutations.SNV_pos.size() == 0) {
-      continue;
-    }
+    //if(cns_pair.mutations.SNV_pos.size() == 0) {
+    //  continue;
+    //}
     
     // otherwise, write healthy consensus as a fastq
     // with the SNVs stored in the header parse string
@@ -418,7 +417,7 @@ void GenomeMapper::identifySNVs(vector<snv_aln_info> &alignments) {
   }
 }
 void GenomeMapper::countSNVs(snv_aln_info &alignment) {
- 
+  
   // indel signature
   for(int i=0; i < alignment.mutated_cns.size() - 1; i++) {
     if (alignment.mutated_cns[i] != alignment.non_mutated_cns[i] &&
@@ -443,9 +442,9 @@ void GenomeMapper::countSNVs(snv_aln_info &alignment) {
   // SNV in body
 
   for (int i=1; i < alignment.mutated_cns.size() - 1; i++) {
-    if (alignment.mutated_cns[i-1] != alignment.non_mutated_cns[i-1] &&
-        alignment.mutated_cns[i] == alignment.non_mutated_cns[i] &&
-        alignment.mutated_cns[i+1] != alignment.non_mutated_cns[i+1] ) {
+    if (alignment.mutated_cns[i-1] == alignment.non_mutated_cns[i-1] &&
+        alignment.mutated_cns[i] != alignment.non_mutated_cns[i] &&
+        alignment.mutated_cns[i+1] == alignment.non_mutated_cns[i+1] ) {
       alignment.SNV_pos.push_back(i);
     }
   }
