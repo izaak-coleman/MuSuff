@@ -13,7 +13,6 @@ struct snv_aln_info {
  int flag;
  int chr;
  int position;
- std::string reference_mismatch;
  std::string non_mutated_cns;
  std::string mutated_cns;
 };
@@ -54,7 +53,13 @@ private:
   // consensus pairs generated from the breakpoint blocks
   // of BPG
 
+  void identifySNVs(std::vector<snv_aln_info> &alignments);
+  // iterates through alignments and calls countSNVs() to identify mutations
+  // handles reverse complement aligment of the healthy cns
   void countSNVs();
+  void countSNVs(snv_aln_info &alignment);
+
+
 
   std::string generateParseString(mutation_classes &m);
   // Function generates a string of the following string (mutation string)
@@ -75,7 +80,7 @@ private:
   // ./bwa/bwa samse hg19.fa cna_pairs.sai cns_pair.fastq > cns_pairs.sam
 
 
-  void call_SNV_variants(std::vector<snv_aln_info> &alignments, std::string filename);
+  void parseSamFile(std::vector<snv_aln_info> &alignments, std::string filename);
   void printAllAlignments(std::vector<snv_aln_info> &alignments);
   void printSingleAlignment(snv_aln_info &snv);
   std::string reverseComplementString(std::string s);
@@ -87,7 +92,6 @@ private:
 public:
     GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
         std::string outfile);
-
 
     void printConsensusPairs();
     // print out each mutated and non mutated string
