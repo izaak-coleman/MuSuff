@@ -422,7 +422,7 @@ void GenomeMapper::countSNVs(snv_aln_info &alignment) {
   for(int i=0; i < alignment.mutated_cns.size() - 1; i++) {
     if (alignment.mutated_cns[i] != alignment.non_mutated_cns[i] &&
         alignment.mutated_cns[i+1] != alignment.non_mutated_cns[i+1]) {
-      continue;
+      return; // no not count 
     }
   }
 
