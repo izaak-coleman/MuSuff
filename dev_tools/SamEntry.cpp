@@ -1,125 +1,100 @@
 #include <iostream>
+#include <cstdlib>
 #include <vector>
 #include <string>
 
 
 #include "string.h"
-#include "SamEntry.cpp"
-
-static const int MUT_CODE = 0;
-static const int FLAG = 1;
-static const int CHR = 2;
-static const int ALIGNMENT = 3;
-static const int QUAL = 4;
-static const int CIGAR = 5;
-static const int INS_SIZE = 8;
-static const int AL_CNS = 9;
-static const int QSTRING = 10;
-static const int MISMATCHES = 18;
-static const int SNV = 1;
-static const int SSV = 2;
-static const int LSV = 3;
-static const int MUT_CNS = 4;
-
-static const string NM = "NM";
-static const string MD = "MD";
-static const string AS = "AS";
-static const string BC = "BC";
-static const string X0 = "X0";
-static const string X1 = "X1";
-static const string XN = "XN";
-static const string XM = "XM";
-static const string XO = "XO";
-static const string XG = "XG";
-static const string XT = "XT";
-static const string XA = "XA";
-static const string XS = "XS";
-static const string XF = "XF";
-static const string XE = "XE";
-
-
-
-static const int REVERSE_FLAG = 16;
-static const int FORWARD_FLAG = 0;
+#include "SamEntry.h"
 
 using namespace std;
 
-
-SamEntry::SamEntry(string record) {
+SamEntry::SamEntry(string record): bwa_fields(NUM_BWA_FIELDS){
+  this->record = record;
   vector<string> fields;
   split_string(record, "\t", fields);
 
-  this.mutation_string = fields[MUT_CODE];
-  this.flag            = stoi(fields[FLAG]);
-  this.chr_num         = stoi(fields[CHR]);
-  this.aln_pos         = stoi(fields[ALIGNMENT]);
-  this.mapq            = stoi(fields[MAPQ]);
-  this.cigar           = fields[CIGAR];
-  this.ins_size        = stoi(fields[INS_SIZE]);
-  this.healthy_cns     = fields[AL_CNS];
-  this.qstring         = fields[QSTRING];
-  fields.erase(fields.begin(), fields.begin()+10); // done with mandatory fields
 
+  // load mandatory fields
+  this->mutation_string = fields[MUT_CODE];
+  this->flag            = stoi(fields[FLAG]);
+  this->chr_num         = fields[CHR];
+  this->aln_pos         = stoi(fields[ALIGNMENT]);
+  this->mapq            = stoi(fields[MAPQ]);
+  this->cigar           = fields[CIGAR];
+  this->ins_size        = stoi(fields[INS_SIZE]);
+  this->healthy_cns     = fields[AL_CNS];
+  this->qstring         = fields[QSTRING];
+
+  // erase mandatory fields after loading
+  fields.erase(fields.begin(), fields.begin()+11); 
+
+  // load non mandatory (bwa specific) fields
   for(int i=0; i < fields.size(); i++) {
     load_non_mandatory_field(fields[i]);
   }
 }
 
-void load_non_mandatory_field(string field) {
+void SamEntry::load_non_mandatory_field(string field) {
   string prefix = field.substr(0,2);
 
-  if (prefix == NM){
-    this.nm= field;
+  if (prefix == PREFIX_NM){
+    bwa_fields[NM] = field;
   }
-  else if (prefix == MD){
-    this.md= field;
+  else if (prefix == PREFIX_MD){
+    bwa_fields[MD] = field;
   }
-  else if (prefix == AS){
-    this.as= field;
+  else if (prefix == PREFIX_AS){
+    bwa_fields[AS] = field;
   }
-  else if (prefix == BC){
-    this.bc= field;
+  else if (prefix == PREFIX_BC){
+    bwa_fields[BC] = field;
   }
-  else if (prefix ==X0){
-    this.x0= field;
+  else if (prefix == PREFIX_X0){
+    bwa_fields[X0] = field;
   }
-  else if (prefix == X1({
-    this.x1= field;
+  else if (prefix == PREFIX_X1){
+    bwa_fields[X1] = field;
   }
-  else if (prefix == XN){
-    this.xn= field;
+  else if (prefix == PREFIX_XN){
+    bwa_fields[XN] = field;
   }
-  else if (prefix == XM){
-    this.xm= field;
+  else if (prefix == PREFIX_XM){
+    bwa_fields[XM] = field;
   }
-  else if (prefix == XO){
-    this.xo= field;
+  else if (prefix == PREFIX_XO){
+    bwa_fields[XO] = field;
   }
-  else if (prefix == XG){
-    this.xg= field;
+  else if (prefix == PREFIX_XG){
+    bwa_fields[XG] = field;
   }
-  else if (prefix == XT){
-    this.xt= field;
+  else if (prefix == PREFIX_XT){
+    bwa_fields[XT] = field;
   }
-  else if (prefix == XA){
-    this.xa=  field;
+  else if (prefix == PREFIX_XA){
+    bwa_fields[XA] =  field;
   }
-  else if (prefix == XS){
-    this.xs= field;
+  else if (prefix == PREFIX_XS){
+    bwa_fields[XS] = field;
   }
-  else if (prefix == XF){
-    this.xf= field;
+  else if (prefix == PREFIX_XF){
+    bwa_fields[XF] = field;
   }
-  else (prefix == XE) {
-    this.xe= field;
+  else if (prefix == PREFIX_XE) {
+    bwa_fields[XE] = field;
+  }
+  else {
+    cout << "Error parsing sam fields" << endl;
+    exit(1);
   }
 }
+
 
 // mandatory fields
 int SamEntry::getFlag() {
   return flag;
 }
-int SamEntry::getChrNum() {
+string SamEntry::getChrNum() {
   return chr_num;
 }
 int SamEntry::getAlnPos() {
@@ -144,53 +119,72 @@ string SamEntry::getQString() {
   return qstring;
 }
 
-// augmented sam - bwa optional fields
+bool SamEntry::bwaFieldContainsElem(int field_num) {
+  return !bwa_fields[field_num].empty();
 
-bool SamEntry::validNM() {
-  return !nm.empty()
-}
-string SamEntry::getNM() {
-  return nm;
 }
 
-bool SamEntry::validMD() {
-  return !md.empty();
-}
-string SamEntry::getMD() {
-  return md;
+string SamEntry::getBwaField(int field_num) {
+  return bwa_fields[field_num];
 }
 
-bool SamEntry::validAS() {
-  return !ad.empty();
-}
-string SamEntry::getAS() {
-  return as;
+
+
+void SamEntry::printEntry(){
+  cout << "Flag: " << getFlag() << endl
+  << "Aln pos: " << getAlnPos() << endl
+  << "Mapq: " << getMapq() << endl
+  << "InsSize: " << getInsSize() << endl
+  << "ChrNum: " << getChrNum() << endl
+  << "MutString :" << getMutationString() << endl
+  << "Cigar: " << getCigarString() << endl
+  << "Healthy CNS: " << getHealthyCns() << endl
+  << "Qstring: " << getQString() << endl << endl << endl;
+
+  if(bwaFieldContainsElem(NM)) {
+    cout << getBwaField(NM) << endl;
+  }
+  if(bwaFieldContainsElem(MD)) {
+    cout << getBwaField(MD) << endl;
+  }
+  if(bwaFieldContainsElem(AS)) {
+    cout << getBwaField(AS) << endl;
+  }
+  if(bwaFieldContainsElem(BC)) {
+    cout << getBwaField(BC) << endl;
+  }
+  if(bwaFieldContainsElem(X0)) {
+    cout << getBwaField(X0) << endl;
+  }
+  if(bwaFieldContainsElem(X1)) {
+    cout << getBwaField(X1) << endl;
+  }
+  if(bwaFieldContainsElem(XN)) {
+    cout << getBwaField(XN) << endl;
+  }
+  if(bwaFieldContainsElem(XM)) {
+    cout << getBwaField(XM) << endl;
+  }
+  if(bwaFieldContainsElem(XO)) {
+    cout << getBwaField(XO) << endl;
+  }
+  if(bwaFieldContainsElem(XG)) {
+    cout << getBwaField(XG) << endl;
+  }
+  if(bwaFieldContainsElem(XT)) {
+    cout << getBwaField(XT) << endl;
+  }
+  if(bwaFieldContainsElem(XA)) {
+    cout << getBwaField(XA) << endl;
+  }
+  if(bwaFieldContainsElem(XF)) {
+    cout << getBwaField(XF) << endl;
+  }
+  if(bwaFieldContainsElem(XE)) {
+    cout << getBwaField(XE) << endl;
+  }
 }
 
-bool SamEntry::validBC() {
-  return !bc.empty();
-}
-string SamEntry::getBC() {
-  return bc;
-}
-
-bool SamEntry::validX0() {
-  return !x0.empty();
-}
-string SamEntry::getX0 {
-  return x0;
-}
-
-bool SamEntry::validX1() {
-  return !x1.empty();
-}
-string SamEntry::getX1() {
-  return x1;
-}
-
-bool SamEntry::validXN() {
-  return !xn.empty();
-}
-string SamEntry::getXN() {
-  return xn;
+void SamEntry::printRecord() {
+  cout << record << endl;
 }
