@@ -23,7 +23,7 @@
 using namespace std;
 static const int N_THREADS = 16;
 static const int TRIM_VALUE = 4;
-static const int UPPER_COVERAGE_THRESHOLD = 80;
+static const int COVERAGE_UPPER_THRESHOLD = 80;
 
 
 BranchPointGroups::BranchPointGroups(SuffixArray &_SA, 
@@ -302,7 +302,7 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
     int &cns_offset, bool tissue_type, string &freq_string) {
   // all seqs get converted to RIGHT orientation, before consensus
 
-  if (BreakPointBlocks[block_id].size() > UPPER_COVERAGE_THRESHOLD) {
+  if (BreakPointBlocks[block_id].size() > COVERAGE_UPPER_THRESHOLD) {
     return "\0";
   } 
 
