@@ -39,6 +39,8 @@ private:
     std::string read_freq_nm;
     int mut_offset;
     int nmut_offset;
+    int left_ohang;
+    int right_ohang;
     mutation_classes mutations;
   };
 
