@@ -71,57 +71,42 @@ void GenomeMapper::buildConsensusPairs() {
   for (int i=0; i < BPG->getSize(); ++i) {
 
     // generate consensus sequences
-    consensus_pair next_pair;
-    next_pair.mutated = BPG->generateConsensusSequence(i,
-      next_pair.mut_offset, TUMOUR, next_pair.read_freq_m);
+    consensus_pair pair;
+    pair.mutated = BPG->generateConsensusSequence(i,
+      pair.mut_offset, TUMOUR, pair.read_freq_m);
 
-    next_pair.non_mutated = BPG->generateConsensusSequence(i,
-        next_pair.nmut_offset, HEALTHY, next_pair.read_freq_nm);
+    pair.non_mutated = BPG->generateConsensusSequence(i,
+        pair.nmut_offset, HEALTHY, pair.read_freq_nm);
 
     // discard sequences that do not contain both a non-mutated
     // and mutated cns pair
-    if(next_pair.mutated == "\0" || next_pair.non_mutated == "\0") {
+    if(pair.mutated == "\0" || pair.non_mutated == "\0") {
       continue;
     }
 
 
-    // cleave consensus sequences, so they
-    // align (by cleaving start), and remove hanging tails (cleaving end)
 
-    if(next_pair.mut_offset < next_pair.nmut_offset) {
-      //next_pair.mutated.insert(0, BPG->addGaps(next_pair.nmut_offset -
-      //                    next_pair.mut_offset));
+    // Trim portions of the cancer consensus sequence that are
+    // longer than heathy. Leave healthy if longer.
 
-      next_pair.non_mutated.erase(0, next_pair.nmut_offset -
-          next_pair.mut_offset);
-      next_pair.read_freq_nm.erase(0, next_pair.nmut_offset -
-          next_pair.mut_offset);
+    if (pair.mut_offset > pair.nmut_offset) {
+      pair.mutated.erase(0, pair.mut_offset - pair.nmut_offset);
     }
-    else {
-      //next_pair.non_mutated.insert(0, BPG->addGaps(next_pair.mut_offset -
-      //                    next_pair.nmut_offset));
-      next_pair.mutated.erase(0, next_pair.mut_offset - next_pair.nmut_offset);
-      next_pair.read_freq_m.erase(0, next_pair.mut_offset - next_pair.nmut_offset);
+    else if (pair.mut_offset < pair.nmut_offset) {
+      pair.left_ohang = pair.nmut_offset - pair.mut_offset;
     }
 
-    // cleave tails
-    if(next_pair.mutated.size() > next_pair.non_mutated.size()) {
-      int pos_to_cleave = next_pair.mutated.size() -
-        next_pair.non_mutated.size();
-
-      next_pair.mutated.erase(next_pair.mutated.size()-pos_to_cleave,
-          pos_to_cleave);
+    if (pair.mutated.size() > (pair.non_mutated.size() - pair.left_ohang)) {
+      int dist = pair.mutated.size() - (pair.non_mutated.size() -
+          pair.left_ohang);
+      pair.mutated.erase(pair.mutated.size - dist, dist);
     }
-    else {
-      int pos_to_cleave = next_pair.non_mutated.size() -
-        next_pair.mutated.size();
-
-      next_pair.non_mutated.erase(next_pair.non_mutated.size()-pos_to_cleave,
-          pos_to_cleave);
+    else if (pair.mutated.size() < (pair.non_mutated - pair.left_ohang)) {
+      pair.right_ohang = 
+        (pair.non_mutated.size() - pair.left_ohang) - pair.mutated.size();
     }
 
-
-    consensus_pairs.push_back(next_pair);
+    consensus_pairs.push_back(pair);
   }
 
 }
