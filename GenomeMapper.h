@@ -13,6 +13,8 @@ struct snv_aln_info {
  int flag;
  int chr;
  int position;
+ int left_ohang;
+ int right_ohang;
  std::string non_mutated_cns;
  std::string mutated_cns;
 };
@@ -59,7 +61,11 @@ private:
   // iterates through alignments and calls countSNVs() to identify mutations
   // handles reverse complement aligment of the healthy cns
   void countSNVs();
-  void countSNVs(snv_aln_info &alignment);
+  void countSNVs(snv_aln_info &alignment, int left);
+  // use of the overhand allows the healthy and cancer consensus sequences
+  // to be correctly lined up for mutation identification, whilst at
+  // the same time, allows the entire healthy sequence to be aligned
+  // to the genome
 
 
 
@@ -98,5 +104,6 @@ public:
     void printConsensusPairs();
     // print out each mutated and non mutated string
     void printMutation(char healthy, char cancer, std::ofstream &mut_file);
+    void printAlignmentStructs(std::vector<snv_aln_info> const &alignments);
 };
 #endif
