@@ -1,11 +1,11 @@
-OBJ=main.o helper_functions.o SuffixArray.o BranchPointGroups.o Reads.o GenomeMapper.o
+OBJ=main.o util_funcs.o SuffixArray.o BranchPointGroups.o Reads.o GenomeMapper.o string.o
 EXE=ICSMuFin
 CXX=g++
-COMPFLAGS=-Wall -ggdb -MMD -std=c++11 -pthread
+COMPFLAGS=-Wall -ggdb -MMD -std=c++11 -pthread 
 OBJDIR=./objects/
 
 $(EXE):$(OBJ)
-	$(CXX) $(COMPFLAGS) $(OBJ) -o $(EXE) -lz
+	$(CXX) $(COMPFLAGS) $(OBJ) -o $(EXE) -lz -lboost_regex
 
 %.o: %.cpp
 	$(CXX) $(COMPFLAGS) -c $<
