@@ -116,18 +116,23 @@ void BranchPointGroups::makeBreakPointBlocks(){
     cout << "No mutations were identified " << endl;
     exit(1);
   }
+ 
 
- multimap<string, read_tag> mutation_grouper;
+  std::hash<std::string> hash;
+  multimap<unsigned long long, read_tag> mutation_grouper;
 
   for(unsigned int read_index : CancerExtraction) {
     string cancer_read = reads->getReadByIndex(read_index, TUMOUR);
     for(int i=0; i < cancer_read.size()-30; i++) {    // make 30bp fwd/rev
 
-      pair<string, read_tag> fwd_key_val, rev_key_val;
+      pair<unsigned long long, read_tag> fwd_key_val, rev_key_val;
 
       // forward and reverse pair of each 30pb window
       string sub_str_fwd = cancer_read.substr(i, 30);
       string sub_str_rev = reverseComplementString(sub_str_fwd);
+      unsigned long long fwd_hash, rev_hash;
+      fwd_hash = hash(sub_str_fwd);
+      rev_hash = hash(sub_str_rev);
     
 
       // init forward tag
@@ -145,10 +150,10 @@ void BranchPointGroups::makeBreakPointBlocks(){
       rev_tag.tissue_type = TUMOUR;
 
       // make pairs and load into map
-      fwd_key_val.first = sub_str_fwd;
+      fwd_key_val.first = fwd_hash;
       fwd_key_val.second = fwd_tag;
 
-      rev_key_val.first = sub_str_rev;
+      rev_key_val.first = rev_hash;
       rev_key_val.second = rev_tag;
 
       mutation_grouper.insert(fwd_key_val);
@@ -160,14 +165,14 @@ void BranchPointGroups::makeBreakPointBlocks(){
   // now loaded into map, extract blocks
   set<read_tag, read_tag_compare> block;
 
-  multimap<string, read_tag>::iterator it = mutation_grouper.begin();  
+  multimap<unsigned long long, read_tag>::iterator it = mutation_grouper.begin();  
 
   while(it != std::prev(mutation_grouper.end())){
     bool left_mate = false, right_mate = false;
 
     if(it->first == std::next(it)->first) { // then same genomic location
 
-      string seed = it->first;
+      unsigned long long seed = it->first;
       block.insert(it->second);           
 
       if(it->second.orientation) {
