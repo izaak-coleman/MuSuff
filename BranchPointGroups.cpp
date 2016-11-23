@@ -280,7 +280,7 @@ void BranchPointGroups::extractNonMutatedAlleles() {
       // get the alligned section
       string aligned_section = read.substr(tag.offset, 30);
 
-      long long int index = binarySearch(aligned_section);
+      long long int index = binarySearch(aligned_section); // MAYBE SWITCH FOr REGULAR BS
       if(index == -1) {
         //cout << "A previously identified sequence no longer exists" << endl;
       }
