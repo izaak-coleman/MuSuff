@@ -106,7 +106,7 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
 
     // set up next worker thread
     from = to;
-    if(i == N_THREADS - 2) {  // then last thread
+    if(i == N_THREADS - 2) {  // set up end chunk for final thread
       to = radixSASize;
     }
     else {
@@ -162,7 +162,7 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
 
     }
 
-    else {                      // TUMOUR
+    else {                      // TUMOUR Can logic be simplified??
 
       pair<unsigned int, unsigned int > read_concat_tup = 
         binarySearch(*tumourBSA, radixSA[i]-startOfTumour);

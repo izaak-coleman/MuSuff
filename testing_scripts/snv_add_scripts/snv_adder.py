@@ -1,8 +1,18 @@
 import sys
 
-start_of_chr22 = 15888000
+start_of_chr22 = 16050001
 
-def add_snvs(fa_name, n_mutations, dist, after_n):
+def aftern(dna):
+  n = 1
+  for char in dna:
+    if char == "N":
+      n = n + 1
+    else:
+      print n-1
+      return n-1
+
+
+def add_snvs(fa_name, n_mutations, dist):
     fa_string = ""
     f = open(fa_name)
     lines = f.readlines()
@@ -17,8 +27,10 @@ def add_snvs(fa_name, n_mutations, dist, after_n):
     #convert fa_strin to muatable list
     fa_string = list(fa_string)
 
+    after_n = aftern(fa_string)
+
     # at every i * dist interval add a mutation
-    print "location, healthy, tumour"
+    print "type, chromosome, location, healthy, tumour"
     for i in range(n_mutations):
         mutation = ""
         if (i % 2) == 0:
@@ -26,7 +38,7 @@ def add_snvs(fa_name, n_mutations, dist, after_n):
         else:
             mutation = transition_mutation(fa_string[after_n + i*dist])
  
-        print (i*dist) + start_of_chr22,",", fa_string[after_n + i*dist],",", mutation
+        print "PointMutation\t", "chr22\t", (i*dist) + start_of_chr22,"\t", fa_string[after_n + i*dist],"\t", mutation
         fa_string[after_n + i*dist] = mutation
  
  
@@ -62,9 +74,9 @@ def transition_mutation(base):
 
 def main():
     if (sys.argv) != 4:
-        print "useage: <exe> <fasta> <n mutations> <dist> <number_after_n>"
+        print "useage: <exe> <fasta> <n mutations> <dist>"
 
-    add_snvs(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
+    add_snvs(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]) )
 
 
 
