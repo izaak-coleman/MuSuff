@@ -58,10 +58,10 @@ void GenomeMapper::callBWA() {
   cout << "Calling bwa..." << endl;
 
   string command_aln = 
-    "./bwa/bwa aln -t 16 /data/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.fastq > cns_pairs.sai";
+    "./bwa/bwa aln -t 16 /data/ic711/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.fastq > cns_pairs.sai";
 
   string command_sampe = 
-    "./bwa/bwa samse /data/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.sai cns_pairs.fastq > cns_pairs.sam";
+    "./bwa/bwa samse /data/ic711/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.sai cns_pairs.fastq > cns_pairs.sam";
 
   system(command_aln.c_str());  
   system(command_sampe.c_str());
