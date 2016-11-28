@@ -21,7 +21,7 @@
 
 
 using namespace std;
-static const int N_THREADS = 16;
+static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
 

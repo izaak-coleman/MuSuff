@@ -26,7 +26,7 @@
 
 using namespace std;
 
-static const int N_THREADS = 16;
+static const int N_THREADS = 64;
 static const int READ_ID_IDX = 0;
 static const int OFFSET_IDX  = 1;
 static const int TYPE_IDX = 2;
