@@ -39,7 +39,6 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
 
   cout << "Building consensus pairs" << endl;
   buildConsensusPairs();
-//countSNVs();            // adding it for test purposes
   cout << "Writing fastq" << endl;
   constructSNVFastqData();
   cout << "Calling bwa" << endl;
@@ -50,6 +49,8 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   parseSamFile(alignments, "cns_pairs.sam");
   cout << "Identifying SNV" << endl;
   identifySNVs(alignments);
+
+  //printAlignmentStructs(alignments);
 
   outputSNVToUser(alignments, outfile);
 }
@@ -82,9 +83,9 @@ void GenomeMapper::buildConsensusPairs() {
     pair.left_ohang = pair.right_ohang = 0;   // default to no overhang
 
     pair.mutated = BPG->generateConsensusSequence(i,
-      pair.mut_offset, TUMOUR, pair.read_freq_m);
+      pair.mut_offset, TUMOUR, pair.pair_id);
     pair.non_mutated = BPG->generateConsensusSequence(i,
-        pair.nmut_offset, HEALTHY, pair.read_freq_nm);
+        pair.nmut_offset, HEALTHY, pair.pair_id);
 
     // discard sequences that do not contain both a non-mutated
     // and mutated cns pair
@@ -117,69 +118,6 @@ void GenomeMapper::buildConsensusPairs() {
 
 }
 
-void GenomeMapper::countSNVs() {
-
-  // for debugging: Writing mutations to a file
-  ofstream mut_file;
-  mut_file.open("mutations_id_by_countSNV.txt");
-
-
-  for(consensus_pair &p : consensus_pairs) {
-//    for( int i=0; i < p.mutated.size();i++) {
-//      if(p.mutated[i] != p.non_mutated[i]) {
-//        p.mutations.SNV_pos.push_back(i);
-//      }  
-//    }
-    bool discard = false; 
-    // remove any consensus pairs that
-    // do not contain SNV style sequence differences
-    // these could result from indels
-
-    for(int i=0; i < p.mutated.size() - 1; i++){
-      if (p.mutated[i] != p.non_mutated[i] && 
-	  p.mutated[i+1] != p.non_mutated[i+1]) {
-          discard = true;
-      }
-    }
-    
-    if(discard) {
-      continue;
-    }
-
-
-    // identify SNV occuring at the start of the string
-    if (p.mutated[0] != p.non_mutated[0] && 
-        p.mutated[1] == p.non_mutated[1]) {
-
-      p.mutations.SNV_pos.push_back(0);
-      printMutation(p.non_mutated[0], p.mutated[0], mut_file);
-    }
-
-    // identify SNVs occuring within the string
-    for(int i=1; i < p.mutated.size() - 1; i++) {
-      if(p.mutated[i] != p.non_mutated[i] &&        // char diffrent but
-          p.mutated[i+1] == p.non_mutated[i+1] &&   // ...next char same
-          p.mutated[i-1] == p.non_mutated[i-1]) {   // ...prev char same
-
-        // then count as SNV
-        p.mutations.SNV_pos.push_back(i);   // store index of variants
-      printMutation(p.non_mutated[i], p.mutated[i], mut_file);
-      }
-    }
-
-    // identify SNV occuring at the very end of the string
-    if (p.mutated[p.mutated.size()-1] !=
-        p.non_mutated[p.non_mutated.size()-1] &&
-        p.mutated[p.mutated.size()-2] == 
-        p.non_mutated[p.non_mutated.size()-2]){
-      
-      p.mutations.SNV_pos.push_back(p.mutated.size()-1);
-      printMutation(p.non_mutated[p.non_mutated.size()-1], 
-          p.mutated[p.mutated.size()-1], mut_file);
-    }
-  }
-  mut_file.close();
-}
 
 void GenomeMapper::printMutation(char healthy, char cancer, ofstream &mut_file) {
   mut_file << healthy <<  ", " << cancer << endl;
@@ -188,6 +126,13 @@ void GenomeMapper::printMutation(char healthy, char cancer, ofstream &mut_file) 
 void GenomeMapper::printAlignmentStructs(vector<snv_aln_info> const &alignments) {
   for (snv_aln_info const &aln : alignments) {
     cout << "Cancer seq:" << endl;
+    if(aln.flag == FORWARD_FLAG) {
+      printGaps(aln.left_ohang);
+    }
+    else {
+      printGaps(aln.right_ohang);
+    }
+
     cout << aln.mutated_cns << endl;
     cout << "Healthy seq:" << endl;
     cout << aln.non_mutated_cns << endl;
@@ -197,6 +142,12 @@ void GenomeMapper::printAlignmentStructs(vector<snv_aln_info> const &alignments)
       cout << pos << ", ";
     }
     cout << endl << endl;
+  }
+}
+
+void GenomeMapper::printGaps(int gaps) {
+  for(; gaps > 0; gaps--) {
+    cout << "-";
   }
 }
 
@@ -489,3 +440,54 @@ string GenomeMapper::generateParseString(mutation_classes &m) {
   mutation_string += "][SSV:][LSV:]";
   return mutation_string;
 }
+
+//void GenomeMapper::countSNVs() {
+//
+//
+//
+//  for(consensus_pair &p : consensus_pairs) {
+//    bool discard = false; 
+//    // remove any consensus pairs that
+//    // do not contain SNV style sequence differences
+//    // these could result from indels
+//
+//    for(int i=0; i < p.mutated.size() - 1; i++){
+//      if (p.mutated[i] != p.non_mutated[i] && 
+//	  p.mutated[i+1] != p.non_mutated[i+1]) {
+//          discard = true;
+//      }
+//    }
+//    
+//    if(discard) {
+//      continue;
+//    }
+//
+//
+//    // identify SNV occuring at the start of the string
+//    if (p.mutated[0] != p.non_mutated[0] && 
+//        p.mutated[1] == p.non_mutated[1]) {
+//
+//      p.mutations.SNV_pos.push_back(0);
+//    }
+//
+//    // identify SNVs occuring within the string
+//    for(int i=1; i < p.mutated.size() - 1; i++) {
+//      if(p.mutated[i] != p.non_mutated[i] &&        // char diffrent but
+//          p.mutated[i+1] == p.non_mutated[i+1] &&   // ...next char same
+//          p.mutated[i-1] == p.non_mutated[i-1]) {   // ...prev char same
+//
+//        // then count as SNV
+//        p.mutations.SNV_pos.push_back(i);   // store index of variants
+//      }
+//    }
+//
+//    // identify SNV occuring at the very end of the string
+//    if (p.mutated[p.mutated.size()-1] !=
+//        p.non_mutated[p.non_mutated.size()-1] &&
+//        p.mutated[p.mutated.size()-2] == 
+//        p.non_mutated[p.non_mutated.size()-2]){
+//      
+//      p.mutations.SNV_pos.push_back(p.mutated.size()-1);
+//    }
+//  }
+//}

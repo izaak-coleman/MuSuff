@@ -163,10 +163,11 @@ void BranchPointGroups::makeBreakPointBlocks(){
  }
 
   // now loaded into map, extract blocks
-  set<read_tag, read_tag_compare> block;
+  bp_block block;
 
   multimap<string, read_tag>::iterator it = mutation_grouper.begin();  
 
+  unsigned int block_id = 0;
   while(it != std::prev(mutation_grouper.end())){
     bool left_mate = false, right_mate = false;
 
@@ -200,7 +201,9 @@ void BranchPointGroups::makeBreakPointBlocks(){
     
       // only extract double orientation groups with CTR 4
       if(/*left_mate & right_mate && */ block.size() >= 4) {
+        block.id = block_id;
         BreakPointBlocks.push_back(block);
+        block_id++;
       }
 
       block.clear();
@@ -256,13 +259,13 @@ void BranchPointGroups::extractNonMutatedAlleles() {
   // because the sequence is identical
   bool searched_forward = false, searched_reverse = false;
 
-  for(set<read_tag, read_tag_compare> &block : BreakPointBlocks) {
+  for(bp_block &block : BreakPointBlocks) {
 
     if(searched_forward && searched_reverse) {  // finished search
       break;
     }
 
-    for(read_tag tag : block) {
+    for(read_tag tag : block.block) {
       if(searched_forward && (tag.orientation == RIGHT)) { // done fwd search
         continue;
       }
@@ -282,10 +285,12 @@ void BranchPointGroups::extractNonMutatedAlleles() {
 
       long long int index = binarySearch(aligned_section); // MAYBE SWITCH FOr REGULAR BS
       if(index == -1) {
-        //cout << "A previously identified sequence no longer exists" << endl;
+        cout << "Binary search failed for block: " << block.id << endl;
+        cout << "Searching on: " << ((tag.orientation == RIGHT) ?  "RIGHT" :
+          "LEFT") << endl;
       }
       else {
-        extendBlock(index, block, tag.orientation); // h reads assigned to same or
+        extendBlock(index, block.block, tag.orientation); // h reads assigned to same or
       }
 
       // update search switches
@@ -303,18 +308,18 @@ void BranchPointGroups::extractNonMutatedAlleles() {
   }
 }
 
-string BranchPointGroups::generateConsensusSequence(unsigned int block_id, 
-    int &cns_offset, bool tissue_type, string &freq_string) {
+string BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
+    int &cns_offset, bool tissue_type, unsigned int &pair_id) {
   // all seqs get converted to RIGHT orientation, before consensus
 
-  if (BreakPointBlocks[block_id].size() > COVERAGE_UPPER_THRESHOLD) {
+  if (BreakPointBlocks[block_idx].size() > COVERAGE_UPPER_THRESHOLD) {
     return "\0";
   } 
 
 
   // select only one tissue type
   vector<read_tag> type_subset;
-  for(read_tag tag : BreakPointBlocks[block_id]) {
+  for(read_tag tag : BreakPointBlocks[block_idx].block) {
     if (tissue_type == HEALTHY  && 
        (tag.tissue_type == HEALTHY || tag.tissue_type == SWITCHED)) {
       type_subset.push_back(tag);
@@ -323,6 +328,8 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
       type_subset.push_back(tag);
     }
   }
+
+  pair_id = BreakPointBlocks[block_idx].id;
 
   if(type_subset.size() == 0) {   // no seq. of tissue type, cannot be mapped
     return "\0";
@@ -397,13 +404,6 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
     aligned_block.push_back(addGaps(max_offset - tag.offset) + read);
   }
 
-  //for(vector<int> base_line : align_counter) { // SHOW CONENSUS BLOCKS
-  //  for(int val : base_line) {
-  //    cout << val << ", ";
-  //  }
-  //  cout << endl;
-  //}
-
 
   string cns = ""; // seed empty consensus sequence
 
@@ -455,6 +455,7 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_id,
     }
   }
 
+  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
   //for(string s : aligned_block) { // SHOW ALIGNED BLOCK
   //  cout << s << endl;
   //}
@@ -691,10 +692,10 @@ unsigned int BranchPointGroups::getSize() {
 
 void BranchPointGroups::printBreakPointBlocks() {
   int i=1;
-  for(set<read_tag, read_tag_compare> block : BreakPointBlocks) {
+  for(bp_block block : BreakPointBlocks) {
     cout << i << "th block: " << endl;
     cout << "block size" << block.size() << endl;
-    for (read_tag tag: block) {
+    for (read_tag tag: block.block) {
       cout << ((tag.tissue_type) ? "Healthy" : "Cancer") 
         << endl << "read_id: " << tag.read_id << endl
         << "offset: " << tag.offset << endl

@@ -39,6 +39,7 @@ private:
     std::string non_mutated;
     std::string read_freq_m;
     std::string read_freq_nm;
+    unsigned int pair_id;
     int mut_offset;
     int nmut_offset;
     int left_ohang;
@@ -60,7 +61,6 @@ private:
   void identifySNVs(std::vector<snv_aln_info> &alignments);
   // iterates through alignments and calls countSNVs() to identify mutations
   // handles reverse complement aligment of the healthy cns
-  void countSNVs();
   void countSNVs(snv_aln_info &alignment, int left);
   // use of the overhand allows the healthy and cancer consensus sequences
   // to be correctly lined up for mutation identification, whilst at
@@ -95,6 +95,8 @@ private:
   void correctReverseCompSNV(std::vector<snv_aln_info> &alignments);
   static bool compareSNVLocations(const single_snv &a, const single_snv &b);
   void outputSNVToUser(std::vector<snv_aln_info> &alignments, std::string report_filename);
+
+  void printGaps(int gaps);
 
 
 public:

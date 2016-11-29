@@ -22,6 +22,57 @@
   int tissue_type;
  };
 
+struct read_tag_compare{
+  // this functor only compares the read id from hashtag
+  // the other data is considered metadata that I can use later
+
+  bool operator() (const read_tag &a, const read_tag &b) const {
+
+    // the comparison needs to avoid adding duplicate reads.
+    // duplicate reads will have the same read_id val, and
+    // derive from the same data set, either H,H or T,S.
+    // As such, when comparisons between H,T and H,S are made,
+    // it is perfectly valid for both elems to have same read_id val
+    // this comparison allows for this
+    if( (a.tissue_type == TUMOUR || a.tissue_type == SWITCHED) &&
+        (b.tissue_type == TUMOUR || b.tissue_type == SWITCHED) ) {
+        return a.read_id < b.read_id;
+    }
+    else if (a.tissue_type == HEALTHY && b.tissue_type == HEALTHY) {
+        return a.read_id < b.read_id;
+    }
+    else {
+        return (a.tissue_type % 2) < (b.tissue_type % 2); // mod to keep SWITCHED and TUMOUR together
+    }
+  }
+};
+
+
+// Moved the break point blocks from vector<set<read_tag, read_tag_compare>>
+// to a struct, allowing a block id to carried with each break point block
+// this is used for development purposes and will be redundant
+// once the algorithm has been developed
+
+struct bp_block {
+  std::set<read_tag, read_tag_compare> block;
+  unsigned int id;
+
+  // wrap insert func to avoid refactoring
+  void insert(read_tag r) {
+    block.insert(r);
+  }
+
+  int size() {
+    return block.size();
+  }
+
+  void clear() {
+    block.clear();
+    id = 0;
+  }
+};
+
+
 class BranchPointGroups {
 private:
   std::mutex  cancer_extraction_lock;
@@ -30,33 +81,6 @@ private:
   SuffixArray *SA;    // store a pointer to SA for access
   double econt;          // the expected level of contamination
 
-
-// requires struct for read tag set comparison
-
-  struct read_tag_compare{
-    // this functor only compares the read id from hashtag
-    // the other data is considered metadata that I can use later
-
-    bool operator() (const read_tag &a, const read_tag &b) const {
-
-      // the comparison needs to avoid adding duplicate reads.
-      // duplicate reads will have the same read_id val, and
-      // derive from the same data set, either H,H or T,S.
-      // As such, when comparisons between H,T and H,S are made,
-      // it is perfectly valid for both elems to have same read_id val
-      // this comparison allows for this
-      if( (a.tissue_type == TUMOUR || a.tissue_type == SWITCHED) &&
-          (b.tissue_type == TUMOUR || b.tissue_type == SWITCHED) ) {
-          return a.read_id < b.read_id;
-      }
-      else if (a.tissue_type == HEALTHY && b.tissue_type == HEALTHY) {
-          return a.read_id < b.read_id;
-      }
-      else {
-          return (a.tissue_type % 2) < (b.tissue_type % 2); // mod to keep SWITCHED and TUMOUR together
-      }
-    }
-  };
 
 
   std::set<unsigned int> CancerExtraction;
@@ -68,7 +92,7 @@ private:
   // in the same orientation. This is done by unifyComplementaryGroups()
   // The unified groups are then stored in ComplementaryUnified
 
-  std::vector<std::set<read_tag, read_tag_compare>> BreakPointBlocks;
+  std::vector<bp_block> BreakPointBlocks;
   
 
   void makeBreakPointBlocks();
@@ -153,7 +177,7 @@ public:
 
 
   std::string generateConsensusSequence(unsigned int block_id, int &cns_offset, 
-      bool tissue_type, std::string &freq_string);
+      bool tissue_type, unsigned int &pair_id);
   // This function performs pileup and returns the consensus sequence
   // for either the TUMOUR or HEALTHY sequence from the block indexed at 
   // block_id
