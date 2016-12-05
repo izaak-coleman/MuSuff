@@ -631,7 +631,7 @@ void BranchPointGroups::getSuffixesFromLeft(int seed_index,
   // so add them
 
   while( // lcps are same AND not out of bounds AND not already in group...
-      left_arrow > 0           
+      left_arrow >= 0           
       && computeLCP(SA->getElem(left_arrow),
                                     SA->getElem(seed_index), *reads) >= 30) {
 
@@ -669,7 +669,7 @@ void BranchPointGroups::getSuffixesFromRight(int seed_index,
   // so add them
 
   while ( // lcps are the same AND not out of bounds AND not already in group...
-      right_arrow < (SA->getSize()-1)         // max LCP size is one less than SA
+      right_arrow <= (SA->getSize()-1)         // max LCP size is one less than SA
       && computeLCP(SA->getElem(right_arrow), 
                                     SA->getElem(seed_index), *reads) >= 30 ) {
 
@@ -760,7 +760,7 @@ long long int BranchPointGroups::binarySearch(string query) {
                                min_left_right) == query.size()) {
       // then we have covered query, by 30bp, and so the suffix is in the
       // correct genomic location
-      return backUpToFirstMatch(mid, query);
+      return mid; // backUpToFirstMatch(mid, query);
     }
 
     if(lexCompare(reads->returnSuffix(SA->getElem(mid)), 
@@ -797,14 +797,16 @@ long long int BranchPointGroups::binarySearch(string query) {
   return -1;                        // no match
 }
 
-long long int BranchPointGroups::backUpToFirstMatch(unsigned int bs_hit, string query) {
-  while (lcp(reads->returnSuffix(SA->getElem(bs_hit)), query, 0) == query.size()) {
-    if(bs_hit == 0) {
-      return bs_hit;
+long long int BranchPointGroups::backUpToFirstMatch(long long int bs_hit, string query) {
+  while (bs_hit >= 0) {
+    if (lcp(reads->returnSuffix(SA->getElem(bs_hit)), query, 0) != query.size()){
+      return bs_hit+1;
     }
-    bs_hit--;
+    else {
+      bs_hit--;
+    }
   }
-  return bs_hit+1;
+  return bs_hit + 1; // 0
 }
 
 unsigned int BranchPointGroups::getSize() {
