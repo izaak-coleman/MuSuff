@@ -25,6 +25,8 @@ static const int SSV = 2;
 static const int LSV = 3;
 static const int MUT_CNS = 1;
 
+static const double ALLELIC_FREQ_OF_ERROR = 0.1;
+
 
 static const int REVERSE_FLAG = 16;
 static const int FORWARD_FLAG = 0;
@@ -94,12 +96,88 @@ void GenomeMapper::buildConsensusPairs() {
     }
 
     trimCancerConsensus(pair);                // trim extra cancer sequence
-
-
+    //maskLowConfidencePositions(pair, healthy_base_frequency, tumour_base_frequency);
     consensus_pairs.push_back(pair);
   }
-
   consensus_pairs.shrink_to_fit();
+}
+
+void GenomeMapper::maskLowConfidencePositions(consensus_pair &pair,
+                                vector< vector<int> > &healthy_base_freq,
+                                vector< vector<int> > &tumour_base_freq) {
+  unsigned int start_h= 0, start_t= 0;
+
+  for(int i=0; i < healthy_base_freq[0].size(); i++) {
+    if(healthy_base_freq[0][i] != -1) {
+      start_h = i;
+      break;
+    }
+  }
+  for(int i=0; i < tumour_base_freq[0].size(); i++) {
+    if(tumour_base_freq[0][i] != -1) {
+      start_t = i;
+      break;
+    }
+  }
+
+  // mask based on tumour cns
+  for(int pos = start_t; pos < pair.mutated.size() + start_t; pos++) {
+    int n_tumour_bases_above_err_freq = 0;
+
+    if(tumour_base_freq[0][pos] == -1) {
+      break;
+    }
+
+    // get total reads
+    double total_reads = 0;
+    for(int base=0; base < 4; base++) {
+      total_reads += tumour_base_freq[base][pos];
+    }
+
+    // calc number of bases over the error frequency
+    for(int base=0; base < 4; base++) {
+      if(tumour_base_freq[base][pos] / total_reads > ALLELIC_FREQ_OF_ERROR) {
+        n_tumour_bases_above_err_freq++;
+      }
+    }
+
+    // if the number of bases with a high allelic frequency is above
+    // one, then the position is of low condifence, so mask
+    if (n_tumour_bases_above_err_freq > 1) {
+      pair.mutated[pos - start_t] = pair.non_mutated[pos - start_t + pair.left_ohang];
+    }
+  }
+
+
+  // mask based on healthy cns
+  for(int pos = start_h + pair.left_ohang; pos < pair.mutated.size() +
+      start_h + pair.left_ohang; pos++) {
+
+    int n_healthy_bases_above_err_freq = 0;
+    if(healthy_base_freq[0][pos] == -1) {
+      break;
+    }
+
+    // get total reads
+    double total_reads = 0;
+    for(int base = 0; base < 4; base++) {
+      total_reads += healthy_base_freq[base][pos];
+    }
+
+    // cals number of bases over the error frequency
+    for(int base=0; base < 4; base++) {
+      if(healthy_base_freq[base][pos] / total_reads > ALLELIC_FREQ_OF_ERROR) {
+        n_healthy_bases_above_err_freq++;
+      }
+    }
+
+    // if n bases with high allelic freq. is above one, then 
+    // position is low confidence so mask
+    if(n_healthy_bases_above_err_freq > 1) {
+      pair.mutated[pos - pair.left_ohang - start_h] = pair.non_mutated[pos -
+        start_h];
+    }
+  }
 }
 
 

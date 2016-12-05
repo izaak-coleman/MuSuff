@@ -93,6 +93,14 @@ private:
   // Trims the cancer consensus sequence, so its length is at most
   // the length of the healthy consensus sequence.
 
+  void maskLowConfidencePositions(consensus_pair &pair, 
+      std::vector< std::vector<int> > &healthy_base_freq,
+      std::vector< std::vector<int> > &tumour_base_freq);
+  // Function scans through frequency vectors. If 
+  // more than two bases have a frequency over ALLELIC_FREQ_OF_ERROR,
+  // then the position is "masked" by writing the 
+  // cancer cns position to the healthy cns position
+
 
   void parseSamFile(std::vector<snv_aln_info> &alignments, std::string filename);
   void printAllAlignments(std::vector<snv_aln_info> &alignments);

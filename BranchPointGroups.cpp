@@ -553,20 +553,18 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     }
   }// end for
 
-  if(tissue_type != TUMOUR) {
-    cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-    for(string s : aligned_block) { // SHOW ALIGNED BLOCK
-      cout << s << endl;
-    }
-    cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-    cout << cns << endl << endl << endl;
+  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  for(string s : aligned_block) { // SHOW ALIGNED BLOCK
+    cout << s << endl;
+  }
+  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  cout << cns << endl << endl << endl;
 
-    for(vector<int> v : align_counter) {
-      for(int i : v) {
-        cout << i;
-      }
-      cout << endl;
+  for(vector<int> v : align_counter) {
+    for(int i : v) {
+      cout << i;
     }
+    cout << endl;
   }
   
 
