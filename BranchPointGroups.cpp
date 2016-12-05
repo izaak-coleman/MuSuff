@@ -631,7 +631,7 @@ void BranchPointGroups::getSuffixesFromLeft(int seed_index,
   // so add them
 
   while( // lcps are same AND not out of bounds AND not already in group...
-      left_arrow >= 0           
+      left_arrow > 0           
       && computeLCP(SA->getElem(left_arrow),
                                     SA->getElem(seed_index), *reads) >= 30) {
 
@@ -669,7 +669,7 @@ void BranchPointGroups::getSuffixesFromRight(int seed_index,
   // so add them
 
   while ( // lcps are the same AND not out of bounds AND not already in group...
-      right_arrow <= (SA->getSize()-1)         // max LCP size is one less than SA
+      right_arrow < (SA->getSize()-1)         // max LCP size is one less than SA
       && computeLCP(SA->getElem(right_arrow), 
                                     SA->getElem(seed_index), *reads) >= 30 ) {
 
