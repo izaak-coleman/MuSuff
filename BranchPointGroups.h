@@ -153,6 +153,11 @@ private:
   // O(n + log m) comparisons, rather than O(n * log m)
   // by avoiding redundant lex comparisons
 
+  long long int backUpToFirstMatch(unsigned int mid, std::string query);
+  // binarySearch() will it a match, but it may not be the first match.
+  // Once binarySearch() finds the match, it calls backUpToFirstMatch()
+  // which finds the smallest indexed suffix that matches the query
+
   void generateBranchPointGroupsWorker(unsigned int to, unsigned int from);
 
   void invalidatePosition(std::vector< std::vector<int> > &alignment_counter, 

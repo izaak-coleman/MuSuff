@@ -760,7 +760,7 @@ long long int BranchPointGroups::binarySearch(string query) {
                                min_left_right) == query.size()) {
       // then we have covered query, by 30bp, and so the suffix is in the
       // correct genomic location
-      return mid;
+      return backUpToFirstMatch(mid, query);
     }
 
     if(lexCompare(reads->returnSuffix(SA->getElem(mid)), 
@@ -795,6 +795,16 @@ long long int BranchPointGroups::binarySearch(string query) {
 
 
   return -1;                        // no match
+}
+
+long long int BranchPointGroups::backUpToFirstMatch(unsigned int bs_hit, string query) {
+  while (lcp(reads->returnSuffix(SA->getElem(bs_hit)), query, 0) == query.size()) {
+    if(bs_hit == 0) {
+      return bs_hit;
+    }
+    bs_hit--;
+  }
+  return bs_hit+1;
 }
 
 unsigned int BranchPointGroups::getSize() {
