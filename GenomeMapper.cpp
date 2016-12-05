@@ -50,7 +50,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   cout << "Identifying SNV" << endl;
   identifySNVs(alignments);
 
-  //printAlignmentStructs(alignments);
+  printAlignmentStructs(alignments);
 
   outputSNVToUser(alignments, outfile);
 }
@@ -182,7 +182,8 @@ void GenomeMapper::constructSNVFastqData() {
     
     snv_fq << "@" + cns_pair.mutated + 
     "[" + to_string(cns_pair.left_ohang) + ";" + 
-    to_string(cns_pair.right_ohang) + "]" << endl;
+    to_string(cns_pair.right_ohang) + ";" + 
+    to_string(cns_pair.pair_id) + "]" << endl;
 
     snv_fq << cns_pair.non_mutated << endl;
     snv_fq << "+" << endl;
@@ -197,7 +198,7 @@ void GenomeMapper::parseSamFile(vector<snv_aln_info> &alignments, string filenam
   ifstream snv_sam(filename);	// open alignment file
   
   boost::regex rgx_header("(@).*");
-  boost::regex rgx_entry_id("^([ATCG]*)\\[(.*)\\;(.*)\\]$");
+  boost::regex rgx_entry_id("^([ATCG]*)\\[(.*)\\;(.*)\\;(.*)\\]$");
 
   string line;
 
@@ -223,16 +224,16 @@ void GenomeMapper::parseSamFile(vector<snv_aln_info> &alignments, string filenam
     al_info.non_mutated_cns = fields[AL_CNS];
 
 
+
     // split DNA from overhangs
     boost::smatch entry_id_fields;
     boost::regex_match(fields[MUT_CODE], entry_id_fields, rgx_entry_id);
 
-    // load the mutated cns sequence
+    // extract mutated cns, overhangs and pair_id
     al_info.mutated_cns = entry_id_fields[MUT_CNS];
-
-    // extract overhangs
     al_info.left_ohang = stoi(entry_id_fields[2]);
     al_info.right_ohang = stoi(entry_id_fields[3]);
+    al_info.pair_id = stoi(entry_id_fields[4]);
 
     // DEV RULE: clearing al_info.SNV_pos to build from scrach using
     // post snv identification design
@@ -398,6 +399,7 @@ void GenomeMapper::outputSNVToUser(vector<snv_aln_info> &alignments, string repo
       snv.position = (al.position + snv_index + overhang); // location of snv
       snv.healthy_base = al.non_mutated_cns[snv_index + overhang];
       snv.mutation_base = al.mutated_cns[snv_index];
+      snv.pair_id = al.pair_id;
 
       separate_snvs.push_back(snv);
     }
@@ -416,6 +418,7 @@ void GenomeMapper::outputSNVToUser(vector<snv_aln_info> &alignments, string repo
            << snv.position << "\t"
            << snv.healthy_base << "\t" 
            << snv.mutation_base << "\t"
+           << snv.pair_id
            << endl;
     i++;
   }

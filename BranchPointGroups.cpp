@@ -50,7 +50,6 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 
   cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
 
-
   cout << "Adding non-mutated alleles to blocks." << endl;
 
   extractNonMutatedAlleles();
@@ -60,56 +59,151 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 BranchPointGroups::~BranchPointGroups() {
 }
 
-
 void BranchPointGroups::extractCancerSpecificReads() {
+
+  unsigned int elements_per_thread = (SA->getSize()  / N_THREADS);
+  vector<thread> workers;
+
+  unsigned int from=0, to= elements_per_thread;
+  for(int i=0; i < N_THREADS; i++) {
+    workers.push_back(
+      std::thread(&BranchPointGroups::generateBranchPointGroupsWorker, 
+        this, from, to)
+    );
+
+    from = to;
+    if(i == N_THREADS -2) {
+      to = SA->getSize();
+    }
+    else {
+      to += elements_per_thread;
+    }
+  }
+
+  for(auto &thread : workers) {
+      thread.join();
+  }
+}
+
+void BranchPointGroups::generateBranchPointGroupsWorker(unsigned int seed_index, 
+                                                        unsigned int to) {
+
+  set<unsigned int> localThreadExtraction;
   double cancer_sequences = 0, healthy_sequences = 0;
   unsigned int extension;
 
 
-  // Make a pass through SA, extracting reads with cancer specific mutations
-  unsigned int seed_index = 0;
-  //for (int seed_index = 0; seed_index < SA->getSize()-1; seed_index++) {
-  while (seed_index < SA->getSize()-1) {
+  while (seed_index < to-1) {
    
     // Calc econt of suffixes sharing same genomic location (assumption: 
     // LCP >= 30). If econt below user specified value, extract group
-    if(computeLCP(SA->getElem(seed_index), SA->getElem(seed_index+1), *reads) >= 30) {
-      if (SA->getElem(seed_index).type == HEALTHY) {  // count seed
+    if(computeLCP(SA->getElem(seed_index),
+                                  SA->getElem(seed_index+1), *reads) >= 30) {
+
+      // tally up the tissue types of seed suffix
+      if (SA->getElem(seed_index).type == HEALTHY) {
         healthy_sequences++;
-      } else {
+      } else {  // TUMOUR
         cancer_sequences++;
       }
 
       extension = seed_index+1;
-      while((computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads) >= 30)
-            && extension < SA->getSize()) {
-        if (SA->getElem(extension).type) {            // count group
+      while ((computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads) >= 30)
+            ) {
+
+        if (SA->getElem(extension).type == HEALTHY) {
           healthy_sequences++;
-        } else { 
+        } else { // TUMOUR 
           cancer_sequences++;
         }
-        extension++;                                  // iterate through group
+        extension++;
+        if(extension == SA->getSize()) {break;}
       }
 
+      // check below econt
       if (cancer_sequences >= 4 && 
          ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
-         unsigned int read_with_mutation;
-         for (unsigned int i = seed_index; i < extension; i++) {
-            if(SA->getElem(i).type == TUMOUR) {    // only extr. cancer reads
-              read_with_mutation = SA->getElem(i).read_id;
-              CancerExtraction.insert(read_with_mutation); // store read id
-            }
-         }
+
+        set <unsigned int> block;
+        for (unsigned int i = seed_index; i < extension; i++) {
+          unsigned int read_with_mutation;
+          if(SA->getElem(i).type == TUMOUR) {    // only extr. cancer reads
+            read_with_mutation = SA->getElem(i).read_id;
+            localThreadExtraction.insert(read_with_mutation);
+          }
+        }
       }
-      seed_index = extension; // jump seed_index to end of old group
-    } else { 
-      seed_index++;           // no match was found so move to next read
+      seed_index = extension; // jump scan to end of group
+    }//end if
+
+    else {  // there was no match found, so we need to increment seed_index + 1
+      seed_index++;
     }
 
-    healthy_sequences = 0;
+    healthy_sequences = 0; 
     cancer_sequences = 0; 
+
   }//end while
+
+  // After extraction, threads need to load their data into global CancerExtractionSet
+
+
+  std::lock_guard<std::mutex> lock(cancer_extraction_lock); // avoid thread interference
+  for(unsigned int read_with_mutation : localThreadExtraction) {
+      CancerExtraction.insert(read_with_mutation);
+    }
 }
+
+
+//void BranchPointGroups::extractCancerSpecificReads() {
+//  double cancer_sequences = 0, healthy_sequences = 0;
+//  unsigned int extension;
+//
+//
+//  // Make a pass through SA, extracting reads with cancer specific mutations
+//  unsigned int seed_index = 0;
+//  //for (int seed_index = 0; seed_index < SA->getSize()-1; seed_index++) {
+//  while (seed_index < SA->getSize()-1) {
+//   
+//    // Calc econt of suffixes sharing same genomic location (assumption: 
+//    // LCP >= 30). If econt below user specified value, extract group
+//    if(computeLCP(SA->getElem(seed_index), SA->getElem(seed_index+1), *reads) >= 30) {
+//      if (SA->getElem(seed_index).type == HEALTHY) {  // count seed
+//        healthy_sequences++;
+//      } else {
+//        cancer_sequences++;
+//      }
+//
+//      extension = seed_index+1;
+//      while((computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads) >= 30)
+//            && extension < SA->getSize()) {
+//        if (SA->getElem(extension).type) {            // count group
+//          healthy_sequences++;
+//        } else { 
+//          cancer_sequences++;
+//        }
+//        extension++;                                  // iterate through group
+//      }
+//
+//      if (cancer_sequences >= 4 && 
+//         ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
+//         unsigned int read_with_mutation;
+//         for (unsigned int i = seed_index; i < extension; i++) {
+//            if(SA->getElem(i).type == TUMOUR) {    // only extr. cancer reads
+//              read_with_mutation = SA->getElem(i).read_id;
+//              CancerExtraction.insert(read_with_mutation); // store read id
+//            }
+//         }
+//      }
+//      seed_index = extension; // jump seed_index to end of old group
+//    } else { 
+//      seed_index++;           // no match was found so move to next read
+//    }
+//
+//    healthy_sequences = 0;
+//    cancer_sequences = 0; 
+//  }//end while
+//}
 
 void BranchPointGroups::makeBreakPointBlocks(){
   if(CancerExtraction.size() == 0) {
@@ -455,12 +549,12 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     }
   }
 
-  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  //for(string s : aligned_block) { // SHOW ALIGNED BLOCK
-  //  cout << s << endl;
-  //}
-  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  //cout << cns << endl << endl << endl;
+  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  for(string s : aligned_block) { // SHOW ALIGNED BLOCK
+    cout << s << endl;
+  }
+  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  cout << cns << endl << endl << endl;
   
 
   // pass out the offset value

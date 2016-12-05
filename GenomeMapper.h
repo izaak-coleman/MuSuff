@@ -17,6 +17,7 @@ struct snv_aln_info {
  int right_ohang;
  std::string non_mutated_cns;
  std::string mutated_cns;
+ unsigned int pair_id;
 };
 
 struct single_snv {
@@ -25,6 +26,7 @@ struct single_snv {
  int position;
  char mutation_base;
  char healthy_base;
+ unsigned int pair_id;
 };
 
 class GenomeMapper {

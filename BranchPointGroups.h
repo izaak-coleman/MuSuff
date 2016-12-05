@@ -153,7 +153,7 @@ private:
   // O(n + log m) comparisons, rather than O(n * log m)
   // by avoiding redundant lex comparisons
 
-
+  void generateBranchPointGroupsWorker(unsigned int to, unsigned int from);
 
 public:
 
@@ -208,7 +208,6 @@ public:
 //  // check if two reads share a 30bp overlap
 //
 //bool sequenceMatch(std::string right, std::string left);
-//  void generateBranchPointGroupsWorker(unsigned int to, unsigned int from);
 //
 //  void unifyReverseComplementaryReads();
 //  // Function performs the final stage to initialze the breakpoint groups.
