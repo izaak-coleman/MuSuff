@@ -71,21 +71,21 @@ void GenomeMapper::callBWA() {
 }
 
 void GenomeMapper::buildConsensusPairs() {
-
-  consensus_pairs.reserve(BPG->getSize()); // make room
-
   // generate consensus pair for each breakpoint block
   // and then add starting gaps to align sequence pair
+
+  consensus_pairs.reserve(BPG->getSize()); // make room
   for (int i=0; i < BPG->getSize(); ++i) {
 
-    // generate consensus sequences
+    vector< vector<int> > tumour_base_frequency, healthy_base_frequency;
     consensus_pair pair;
     pair.left_ohang = pair.right_ohang = 0;   // default to no overhang
 
     pair.mutated = BPG->generateConsensusSequence(i,
-      pair.mut_offset, TUMOUR, pair.pair_id);
+      pair.mut_offset, TUMOUR, pair.pair_id, tumour_base_frequency);
+
     pair.non_mutated = BPG->generateConsensusSequence(i,
-        pair.nmut_offset, HEALTHY, pair.pair_id);
+        pair.nmut_offset, HEALTHY, pair.pair_id, healthy_base_frequency);
 
     // discard sequences that do not contain both a non-mutated
     // and mutated cns pair
@@ -93,6 +93,17 @@ void GenomeMapper::buildConsensusPairs() {
       continue;
     }
 
+    trimCancerConsensus(pair);                // trim extra cancer sequence
+
+
+    consensus_pairs.push_back(pair);
+  }
+
+  consensus_pairs.shrink_to_fit();
+}
+
+
+void GenomeMapper::trimCancerConsensus(consensus_pair &pair) {
     // Trim portions of the cancer consensus sequence that are
     // longer than heathy. Leave healthy if longer.
 
@@ -112,10 +123,7 @@ void GenomeMapper::buildConsensusPairs() {
       pair.right_ohang = 
         (pair.non_mutated.size() - pair.left_ohang) - pair.mutated.size();
     }
-
-    consensus_pairs.push_back(pair);
-  }
-
+    // else, equal length. Do nothing
 }
 
 

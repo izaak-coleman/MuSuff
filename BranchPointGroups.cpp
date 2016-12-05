@@ -403,7 +403,8 @@ void BranchPointGroups::extractNonMutatedAlleles() {
 }
 
 string BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
-    int &cns_offset, bool tissue_type, unsigned int &pair_id) {
+    int &cns_offset, bool tissue_type, unsigned int &pair_id,
+    vector< vector<int> > &align_counter) {
   // all seqs get converted to RIGHT orientation, before consensus
 
   if (BreakPointBlocks[block_idx].size() > COVERAGE_UPPER_THRESHOLD) {
@@ -454,10 +455,12 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     min_offset = 0;
   }
 
-  // align_counter is used for the consensus count
+  // initialize align_counter.
   vector<string> aligned_block;
-  vector<vector<int>> align_counter(4, 
-      vector<int>((max_offset + 80 - min_offset), 0));
+  for (int n_vectors=0; n_vectors < 4; n_vectors++) {
+    vector<int> v(max_offset + 80 - min_offset, 0);
+    align_counter.push_back(v);
+  }
 
 
   for(read_tag tag : type_subset) {
@@ -506,7 +509,7 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   for (int pos=0; pos < align_counter[0].size(); pos++) {
 
     // only start when the number of reads aligned at that position
-    /// is >= 4
+    /// is >= TRIM_VALUE
 
     int nreads=0;
     for (int base=0; base < 4; base++) {
@@ -516,7 +519,8 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
       if (!hit_consensus_min) {
         n_skipped_start_pos++;		// need to nibble off skipped positions from cns offset
       }
-      continue;
+      invalidatePosition(align_counter, pos);   // invalidate rather than trim
+      continue;                   // continue performs the trimming
     }
     else {
       hit_consensus_min = true;
@@ -527,7 +531,7 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
 
     // find highest freq. base
     for(int base=0; base < 4; base++) {
-      if (align_counter[base][pos] > maxVal) {	// plus n_skipped_start_pos?
+      if (align_counter[base][pos] > maxVal) {
         maxVal = align_counter[base][pos];
         maxInd = base;
       }
@@ -547,14 +551,23 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
         cns += "G";
         break;
     }
-  }
+  }// end for
 
-  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  for(string s : aligned_block) { // SHOW ALIGNED BLOCK
-    cout << s << endl;
+  if(tissue_type != TUMOUR) {
+    cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+    for(string s : aligned_block) { // SHOW ALIGNED BLOCK
+      cout << s << endl;
+    }
+    cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+    cout << cns << endl << endl << endl;
+
+    for(vector<int> v : align_counter) {
+      for(int i : v) {
+        cout << i;
+      }
+      cout << endl;
+    }
   }
-  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  cout << cns << endl << endl << endl;
   
 
   // pass out the offset value
@@ -572,6 +585,12 @@ string BranchPointGroups::addGaps(int n_gaps) {
   }
 
   return gaps;
+}
+
+void BranchPointGroups::invalidatePosition(vector< vector<int> > &alignment_counter, int pos) {
+  for (int base=0; base < 4; base++) {
+    alignment_counter[base][pos] = -1;
+  }
 }
 
 

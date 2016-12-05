@@ -155,6 +155,12 @@ private:
 
   void generateBranchPointGroupsWorker(unsigned int to, unsigned int from);
 
+  void invalidatePosition(std::vector< std::vector<int> > &alignment_counter, 
+      int pos);
+  // Where number of reads is < TRIM_VALUE this sets bases rows at the
+  // insufficient position to -1, invalidating the position, as
+  // the number of reads must be at least 0.
+
 public:
 
 
@@ -177,7 +183,8 @@ public:
 
 
   std::string generateConsensusSequence(unsigned int block_id, int &cns_offset, 
-      bool tissue_type, unsigned int &pair_id);
+      bool tissue_type, unsigned int &pair_id,
+      std::vector< std::vector<int> > &alignment_counter);
   // This function performs pileup and returns the consensus sequence
   // for either the TUMOUR or HEALTHY sequence from the block indexed at 
   // block_id

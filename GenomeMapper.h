@@ -89,6 +89,10 @@ private:
   // Then cals to bwa samse
   // ./bwa/bwa samse hg19.fa cna_pairs.sai cns_pair.fastq > cns_pairs.sam
 
+  void trimCancerConsensus(consensus_pair &pair);
+  // Trims the cancer consensus sequence, so its length is at most
+  // the length of the healthy consensus sequence.
+
 
   void parseSamFile(std::vector<snv_aln_info> &alignments, std::string filename);
   void printAllAlignments(std::vector<snv_aln_info> &alignments);
