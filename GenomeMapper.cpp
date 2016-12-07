@@ -1,4 +1,5 @@
 // GenomeMapper.cpp
+
 #include <vector>
 #include <iostream>
 #include <string>
@@ -26,6 +27,7 @@ static const int LSV = 3;
 static const int MUT_CNS = 1;
 
 static const double ALLELIC_FREQ_OF_ERROR = 0.1;
+static const int MAX_LOW_CONF_POSITIONS = 3;
 
 
 static const int REVERSE_FLAG = 16;
@@ -96,7 +98,14 @@ void GenomeMapper::buildConsensusPairs() {
     }
 
     trimCancerConsensus(pair);                // trim extra cancer sequence
-    //maskLowConfidencePositions(pair, healthy_base_frequency, tumour_base_frequency);
+
+    bool low_quality_block = false;
+    maskLowConfidencePositions(pair, healthy_base_frequency, 
+        tumour_base_frequency, low_quality_block);
+
+    if (low_quality_block) {
+      continue;
+    }
     consensus_pairs.push_back(pair);
   }
   consensus_pairs.shrink_to_fit();
@@ -104,7 +113,9 @@ void GenomeMapper::buildConsensusPairs() {
 
 void GenomeMapper::maskLowConfidencePositions(consensus_pair &pair,
                                 vector< vector<int> > &healthy_base_freq,
-                                vector< vector<int> > &tumour_base_freq) {
+                                vector< vector<int> > &tumour_base_freq,
+                                bool &discard) {
+  discard = false;
   unsigned int start_h= 0, start_t= 0;
 
   for(int i=0; i < healthy_base_freq[0].size(); i++) {
@@ -148,7 +159,7 @@ void GenomeMapper::maskLowConfidencePositions(consensus_pair &pair,
     }
   }
 
-
+  int number_of_low_conf_positions = 0; 
   // mask based on healthy cns
   for(int pos = start_h + pair.left_ohang; pos < pair.mutated.size() +
       start_h + pair.left_ohang; pos++) {
@@ -176,8 +187,17 @@ void GenomeMapper::maskLowConfidencePositions(consensus_pair &pair,
     if(n_healthy_bases_above_err_freq > 1) {
       pair.mutated[pos - pair.left_ohang - start_h] = pair.non_mutated[pos -
         start_h];
+      number_of_low_conf_positions++;
     }
   }
+
+
+  // if there were too many low condidence positions, 
+  // the block is low quality, so discard
+  if(number_of_low_conf_positions > MAX_LOW_CONF_POSITIONS) {
+    discard = true;
+  }
+  cout << "number of low conf: " << number_of_low_conf_positions << endl;
 }
 
 
@@ -224,6 +244,7 @@ void GenomeMapper::printAlignmentStructs(vector<snv_aln_info> const &alignments)
     cout << aln.non_mutated_cns << endl;
     cout << "Left ohang:  " << aln.left_ohang << endl;
     cout << "Right ohang: " << aln.right_ohang << endl;
+    cout << "Pair id: " << aln.pair_id << endl;
     for(int pos : aln.SNV_pos) {
       cout << pos << ", ";
     }

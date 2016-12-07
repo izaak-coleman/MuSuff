@@ -95,7 +95,8 @@ private:
 
   void maskLowConfidencePositions(consensus_pair &pair, 
       std::vector< std::vector<int> > &healthy_base_freq,
-      std::vector< std::vector<int> > &tumour_base_freq);
+      std::vector< std::vector<int> > &tumour_base_freq,
+      bool &discard);
   // Function scans through frequency vectors. If 
   // more than two bases have a frequency over ALLELIC_FREQ_OF_ERROR,
   // then the position is "masked" by writing the 
@@ -104,6 +105,7 @@ private:
 
   void parseSamFile(std::vector<snv_aln_info> &alignments, std::string filename);
   void printAllAlignments(std::vector<snv_aln_info> &alignments);
+
   void printSingleAlignment(snv_aln_info &snv);
   std::string reverseComplementString(std::string s);
   void correctReverseCompSNV(std::vector<snv_aln_info> &alignments);

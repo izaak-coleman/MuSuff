@@ -558,14 +558,15 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     cout << s << endl;
   }
   cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  cout << cns << endl << endl << endl;
+  cout << cns << endl << endl;
 
   for(vector<int> v : align_counter) {
     for(int i : v) {
-      cout << i;
+      cout << i << ",";
     }
     cout << endl;
   }
+  cout << endl;
   
 
   // pass out the offset value
