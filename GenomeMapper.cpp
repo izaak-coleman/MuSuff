@@ -50,7 +50,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
 
   vector<snv_aln_info> alignments;
   cout << "Parsing sam" << endl;
-  parseSamFile(alignments, "cns_pairs.sam");
+  parseSamFile(alignments, "/data/ic711/result/cns_pairs.sam");
   cout << "Identifying SNV" << endl;
   identifySNVs(alignments);
 
@@ -63,10 +63,10 @@ void GenomeMapper::callBWA() {
   cout << "Calling bwa..." << endl;
 
   string command_aln = 
-    "./bwa/bwa aln -t 16 /data/ic711/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.fastq > cns_pairs.sai";
+    "./bwa/bwa aln -t 16 /data/ic711/insilico_data/smufin_provided_data/ref_genome/hg19.fa /data/ic711/result/cns_pairs.fastq > /data/ic711/result/cns_pairs.sai";
 
   string command_sampe = 
-    "./bwa/bwa samse /data/ic711/insilico_data/smufin_provided_data/ref_genome/hg19.fa cns_pairs.sai cns_pairs.fastq > cns_pairs.sam";
+    "./bwa/bwa samse /data/ic711/insilico_data/smufin_provided_data/ref_genome/hg19.fa /data/ic711/result/cns_pairs.sai /data/ic711/result/cns_pairs.fastq > /data/ic711/result/cns_pairs.sam";
 
   system(command_aln.c_str());  
   system(command_sampe.c_str());
@@ -99,13 +99,14 @@ void GenomeMapper::buildConsensusPairs() {
 
     trimCancerConsensus(pair);                // trim extra cancer sequence
 
-    bool low_quality_block = false;
-    maskLowConfidencePositions(pair, healthy_base_frequency, 
-        tumour_base_frequency, low_quality_block);
+    //// TURN OFF MASK
+    //bool low_quality_block = false;
+    //maskLowConfidencePositions(pair, healthy_base_frequency, 
+    //    tumour_base_frequency, low_quality_block);
 
-    if (low_quality_block) {
-      continue;
-    }
+    //if (low_quality_block) {
+    //  continue;
+    //}
     consensus_pairs.push_back(pair);
   }
   consensus_pairs.shrink_to_fit();
@@ -277,7 +278,7 @@ void GenomeMapper::printConsensusPairs() {
 
 void GenomeMapper::constructSNVFastqData() {
   ofstream snv_fq;
-  snv_fq.open("cns_pairs.fastq");
+  snv_fq.open("/data/ic711/result/cns_pairs.fastq");
 
   for (consensus_pair &cns_pair : consensus_pairs) {
 //    if(cns_pair.mutations.SNV_pos.size() == 0) {    // REMOVE IF on 14/11/16
