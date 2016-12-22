@@ -158,7 +158,7 @@ private:
   // Once binarySearch() finds the match, it calls backUpToFirstMatch()
   // which finds the smallest indexed suffix that matches the query
 
-  void generateBranchPointGroupsWorker(unsigned int to, unsigned int from);
+  void extractionWorker(unsigned int to, unsigned int from);
 
   void invalidatePosition(std::vector< std::vector<int> > &alignment_counter, 
       int pos);

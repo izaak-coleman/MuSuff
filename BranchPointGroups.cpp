@@ -33,25 +33,17 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   reads = &_reads;  
   SA = &_SA;    
 
-
   // Generate branchpoint groups
   cout << "Extracting cancer-specific reads..." << endl;
   extractCancerSpecificReads(); 
-
-
-  cout << "No of extracted groups: " << 
-    CancerExtraction.size() << endl;
+  cout << "No of extracted groups: " << CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
-
   cout << "Generating breakpoint blocks..." << endl;
   makeBreakPointBlocks();
 
-
   cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
-
   cout << "Adding non-mutated alleles to blocks." << endl;
-
   extractNonMutatedAlleles();
 }
 
@@ -67,7 +59,7 @@ void BranchPointGroups::extractCancerSpecificReads() {
   unsigned int from=0, to= elements_per_thread;
   for(int i=0; i < N_THREADS; i++) {
     workers.push_back(
-      std::thread(&BranchPointGroups::generateBranchPointGroupsWorker, 
+      std::thread(&BranchPointGroups::extractionWorker, 
         this, from, to)
     );
 
@@ -85,7 +77,7 @@ void BranchPointGroups::extractCancerSpecificReads() {
   }
 }
 
-void BranchPointGroups::generateBranchPointGroupsWorker(unsigned int seed_index, 
+void BranchPointGroups::extractionWorker(unsigned int seed_index, 
                                                         unsigned int to) {
 
   set<unsigned int> localThreadExtraction;
@@ -154,56 +146,69 @@ void BranchPointGroups::generateBranchPointGroupsWorker(unsigned int seed_index,
     }
 }
 
+void BranchPointGroups::seedBreakPointBlocks() {
 
-//void BranchPointGroups::extractCancerSpecificReads() {
-//  double cancer_sequences = 0, healthy_sequences = 0;
-//  unsigned int extension;
-//
-//
-//  // Make a pass through SA, extracting reads with cancer specific mutations
-//  unsigned int seed_index = 0;
-//  //for (int seed_index = 0; seed_index < SA->getSize()-1; seed_index++) {
-//  while (seed_index < SA->getSize()-1) {
-//   
-//    // Calc econt of suffixes sharing same genomic location (assumption: 
-//    // LCP >= 30). If econt below user specified value, extract group
-//    if(computeLCP(SA->getElem(seed_index), SA->getElem(seed_index+1), *reads) >= 30) {
-//      if (SA->getElem(seed_index).type == HEALTHY) {  // count seed
-//        healthy_sequences++;
-//      } else {
-//        cancer_sequences++;
-//      }
-//
-//      extension = seed_index+1;
-//      while((computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads) >= 30)
-//            && extension < SA->getSize()) {
-//        if (SA->getElem(extension).type) {            // count group
-//          healthy_sequences++;
-//        } else { 
-//          cancer_sequences++;
-//        }
-//        extension++;                                  // iterate through group
-//      }
-//
-//      if (cancer_sequences >= 4 && 
-//         ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
-//         unsigned int read_with_mutation;
-//         for (unsigned int i = seed_index; i < extension; i++) {
-//            if(SA->getElem(i).type == TUMOUR) {    // only extr. cancer reads
-//              read_with_mutation = SA->getElem(i).read_id;
-//              CancerExtraction.insert(read_with_mutation); // store read id
-//            }
-//         }
-//      }
-//      seed_index = extension; // jump seed_index to end of old group
-//    } else { 
-//      seed_index++;           // no match was found so move to next read
-//    }
-//
-//    healthy_sequences = 0;
-//    cancer_sequences = 0; 
-//  }//end while
-//}
+  string concat("");
+  vector<pair<unsigned int, unsigned int>> binary_search_array;
+
+  // load the first element
+  pair<unsigned int, unsigned int> first_read(CancerExtraction[0],0);
+  binary_search_array.push_back(first_read);    // first read starts at zero
+  concat += reads->getReadByIndex(CancerExtraction[0], TUMOUR);
+  concat += reverseComplementString( 
+      reads->getReadByIndex(CancerExtraction[0], TUMOUR)
+  );
+
+
+  unsigned int concat_idx = 0;
+  for (unsigned int i=1; i < CancerExtraction.size(); i++) {
+    unsigned int read_index = CancerExtraction[i];
+
+    // build concat
+    concat += reads->getReadByIndex(read_index, TUMOUR);
+    concat += reverseComplementString( 
+        reads->getReadByIndex(read_index, TUMOUR)
+      );
+
+
+    // add bsa values
+    concat_idx += reads->getReadByIndex(CancerExtraction[i-1]).size() * 2;
+    pair<unsigned int, unsigned int> read_concat_pair (read_index, concat_idx);
+    binary_search_array.push_back(read_concat_pair);
+  }
+
+
+  // Build SA
+  unsigned long long *radixSA;
+  radixSA = 
+    Radix<unsigned long long>((uchar*) concat.c_str(), concat.size()).build();
+
+
+  // transform to GSA
+  vector<reads_tags> gsa;
+  for (unsigned long long i=0; i < concat.size(); i++) {
+    pair <unsigned int, unsigned int> read_concat_pair = 
+      SA->binarySearch(binary_search_array, radixSA[i]);
+
+    unsigned int offset = radixSA[i] - read_concat_pair.second;
+    int read_size = reads->getReadByIndex(read_concat_pair.first, TUMOUR).size();
+
+    bool orientation = FORWARD;
+    if (offset >= read_size)
+      offset -= read_size;
+      orientation = REVERSE;
+    }
+
+    if (offset > read_size - min_suf) continue; // suffix too short
+
+    read_tag tag;
+    tag.read_id = read_concat_pair.first;
+    tag.orientation = orientation;
+    tag.offset = offset;
+    tag tissue_type = TUMOUR;
+    gsa.push_back(tag);       // gsa should be built
+  } 
+}
 
 void BranchPointGroups::makeBreakPointBlocks(){
   if(CancerExtraction.size() == 0) {
