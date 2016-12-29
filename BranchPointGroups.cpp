@@ -208,6 +208,48 @@ void BranchPointGroups::seedBreakPointBlocks() {
     tag tissue_type = TUMOUR;
     gsa.push_back(tag);       // gsa should be built
   } 
+
+  extractGroups(gsa)
+}
+
+int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
+
+
+  // need to correct for reverse orientation
+  string::iterator a_it = 
+    reads->getReadByIndex(a.read_id, TUMOUR).begin() + a.offset;
+  string::iterator b_it = 
+    reads->getReadByIndex(b.read_id, TUMOUR).begin() + b.offset;
+  for (int i = 0;*a_it == *b_it; a_it++, b_it++, i++);
+  return i;
+}
+
+void BranchPointGroups::extractGroups(vector<read_tags> &gsa) {
+
+  unsigned int seed_index(0);
+  unsigned int extension(0);
+  // seed
+  while (seed_index < gsa.size()-1) {
+   
+    if (computeLCP(gsa[seed_index], gsa[seed_index+1]) >= reads->getMinSuffixSize()) {
+      bp_block block;
+      block.block.push_back(gsa[seed_index]); // add seed to block
+      extension = seed_index+1;
+
+      // extend
+      while ((computeLCP(gsa[seed_index], gsa[extension])
+           >= reads->getMinSuffixSize())) {
+        block.block.push_back(gsa[extension]);
+        extension++;
+        if (extension == gsa.size()) break;
+      }
+      seed_index = extension;
+    }
+    else {
+      seed_index++;
+    }
+
+  }
 }
 
 void BranchPointGroups::makeBreakPointBlocks(){

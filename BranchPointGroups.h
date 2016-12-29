@@ -166,6 +166,8 @@ private:
   // insufficient position to -1, invalidating the position, as
   // the number of reads must be at least 0.
 
+  void seedBreakPointBlocks();
+
 public:
 
 
