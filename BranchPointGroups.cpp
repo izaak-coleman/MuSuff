@@ -195,11 +195,17 @@ void BranchPointGroups::seedBreakPointBlocks() {
 
     bool orientation = RIGHT;
     if (offset >= read_size) {
-      offset -= read_size;
       orientation = LEFT;
+      offset -= read_size;
+    }
+    // remove suffixes that are too short
+    if (read_size - offset <= reads->getMinSuffixSize())  continue;
+
+    // read is stored in forward orientation, convert if LEFT
+    if (orientation == LEFT) {
+      offset = read_size - offset - reads->getMinSuffixSize() - 1; // dollar -1
     }
 
-    if (read_size - offset <= reads->getMinSuffixSize())  continue;
     read_tag tag;
     tag.read_id = read_concat_pair.first;
     tag.orientation = orientation;
@@ -218,10 +224,9 @@ void BranchPointGroups::seedBreakPointBlocks() {
   //}
 
   cout << "Extracting groups from cancer specific gsa" << endl;
-  extractGroups(gsa);
   delete [] radixSA;
+  extractGroups(gsa);
 }
-
 int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
   string::const_iterator a_it, b_it, a_end, b_end;
   const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
@@ -234,8 +239,8 @@ int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
     a_end = astr.end();
     a_inc = 1;
   }
-  else {
-    a_it = astr.end() - 2 - a.offset; // 2 avoids dollar symbol
+  else { 
+    a_it = astr.begin() + a.offset + reads->getMinSuffixSize() - 1;
     a_end = astr.begin();
     a_inc = -1;
     a_rc = true;
@@ -247,7 +252,7 @@ int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
     b_inc = 1;
   }
   else {
-    b_it = bstr.end() - 2 - b.offset; // 2 avoids dollar symbol
+    b_it = bstr.begin() + b.offset + reads->getMinSuffixSize() - 1;
     b_end = bstr.begin();
     b_inc = -1;
     b_rc = true;
@@ -261,6 +266,46 @@ int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
 
   return lcp;
 }
+
+//int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
+//  string::const_iterator a_it, b_it, a_end, b_end;
+//  const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
+//  const string &bstr = reads->getReadByIndex(b.read_id, TUMOUR);
+//  int a_inc, b_inc;
+//  bool a_rc = false, b_rc = false;
+//
+//  if (a.orientation == RIGHT) {
+//    a_it = astr.begin() + a.offset;
+//    a_end = astr.end();
+//    a_inc = 1;
+//  }
+//  else {
+//    a_it = astr.end() - 2 - a.offset; // 2 avoids dollar symbol
+//    a_end = astr.begin();
+//    a_inc = -1;
+//    a_rc = true;
+//  }
+//
+//  if (b.orientation == RIGHT) {
+//    b_it = bstr.begin() + b.offset;
+//    b_end = bstr.end();
+//    b_inc = 1;
+//  }
+//  else {
+//    b_it = bstr.end() - 2 - b.offset; // 2 avoids dollar symbol
+//    b_end = bstr.begin();
+//    b_inc = -1;
+//    b_rc = true;
+//  }
+//
+//  int lcp = 0;
+//  for(; revCompCharacter(*a_it, a_rc) == revCompCharacter(*b_it, b_rc) &&
+//        b_it != b_end &&
+//        a_it != a_end; 
+//        a_it += a_inc, b_it += b_inc, lcp++);
+//
+//  return lcp;
+//}
 
 char BranchPointGroups::revCompCharacter(char ch, bool rc) {
   if (!rc) return ch;
@@ -482,6 +527,8 @@ string BranchPointGroups::reverseComplementString(string s){
 
 
 void BranchPointGroups::extractNonMutatedAlleles() {
+// NB: When we perform integer grouping, this will have be be performed
+// in forward and reverse orientation
 
   // only need to seach overlap in each orientation, rather than whole set
   // because the sequence is identical
@@ -569,13 +616,13 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   int min_offset = numeric_limits<int>::max();
 
   // convert the offset indexes from LEFT to equivalent index in RIGHT
-  //for(read_tag &tag : type_subset) {
-  //  if (tag.orientation == LEFT) {
-  //    int read_size = reads->getReadByIndex(tag.read_id,
-  //        tag.tissue_type).size();
-  //    tag.offset = (read_size - (tag.offset + 31));
-  //  }
-  for (read_tag &tag : type_subset) {
+  for(read_tag &tag : type_subset) {
+    if (tag.orientation == LEFT) {
+      int read_size = reads->getReadByIndex(tag.read_id,
+          tag.tissue_type).size();
+      tag.offset = (read_size - (tag.offset + reads->getMinSuffixSize() + 1));
+    }
+  //for (read_tag &tag : type_subset) {
     if(tag.offset > max_offset) {   // also record max and min offset
       max_offset = tag.offset;
     }
