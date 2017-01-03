@@ -167,6 +167,18 @@ private:
   // the number of reads must be at least 0.
 
   void seedBreakPointBlocks();
+  // Input: CancerExtraction
+  // Output: Loads the groups of cancer specific reads into BreakPointBlocks
+  // Details: Uses a GSA in order to group the reads. Groups are formed
+  // from reads contiguous in the array that have LCP >= 30
+  void extractGroups(std::vector<read_tag> &gsa);
+  // Input: GSA of cancer specific reads
+  // Output: BreakPointBlocks with loaded blocks
+  // Details: Forms the groups of contiguous reads with LCP >= 30 
+  // using seed and extension 
+  int computeLCP(read_tag a, read_tag b);
+  char revCompCharacter(char ch, bool rc);
+  
 
 public:
 

@@ -54,7 +54,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   cout << "Identifying SNV" << endl;
   identifySNVs(alignments);
 
-  printAlignmentStructs(alignments);
+//  printAlignmentStructs(alignments);
 
   outputSNVToUser(alignments, outfile);
 }
@@ -79,6 +79,7 @@ void GenomeMapper::buildConsensusPairs() {
   // and then add starting gaps to align sequence pair
 
   consensus_pairs.reserve(BPG->getSize()); // make room
+  int continued  = 0;
   for (int i=0; i < BPG->getSize(); ++i) {
 
     vector< vector<int> > tumour_base_frequency, healthy_base_frequency;
@@ -94,6 +95,7 @@ void GenomeMapper::buildConsensusPairs() {
     // discard sequences that do not contain both a non-mutated
     // and mutated cns pair
     if(pair.mutated == "\0" || pair.non_mutated == "\0") {
+      continued++;
       continue;
     }
 
@@ -109,6 +111,7 @@ void GenomeMapper::buildConsensusPairs() {
     //}
     consensus_pairs.push_back(pair);
   }
+  cout << "Skipped " << continued << endl;
   consensus_pairs.shrink_to_fit();
 }
 
