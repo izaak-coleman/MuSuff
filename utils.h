@@ -119,14 +119,16 @@ int indexAlphabet(const uchar *in, unum length, uint *charIndex, int& bitsPerCha
     return alphaSize;
 }
 
-clock_t _startTime = clock();
-clock_t _endTime;
+extern clock_t _startTime;
+extern clock_t _endTime;
+//clock_t _startTime = clock();
+//clock_t _endTime;
 
-void resetTime() {
+void inline resetTime() {
     _startTime = clock();
 }
 
-float getTime() {
+float inline getTime() {
     _endTime = clock();
     return (float) (_endTime - _startTime) / 1000; //CLOCKS_PER_SEC;
 }
@@ -168,7 +170,7 @@ void insertSort(DataT* data, S length, KeyT* key) {
 }
 
 #define PRINT_LIMIT 500
-void printCharData(const uchar *array, int nKey) {
+void inline printCharData(const uchar *array, int nKey) {
     int e = (nKey > PRINT_LIMIT) ? PRINT_LIMIT : nKey;
     for (int i = 0; i < e; ++i) {
         uchar c = array[i];
@@ -193,7 +195,7 @@ void FreeAll(T & t) {
     t.swap(tmp);
 }
 
-double clock_diff_to_msec(long clock_diff) {
+double inline clock_diff_to_msec(long clock_diff) {
     return double(clock_diff) / CLOCKS_PER_SEC * 1000;
 }
 

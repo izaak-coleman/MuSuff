@@ -6,10 +6,10 @@ OBJDIR=./objects/
 
 $(EXE):$(OBJ)
 	$(CXX) $(COMPFLAGS) $(OBJ) -o $(EXE) -lz -lboost_regex
+	mv *.o *.d ./obj
 
 %.o: %.cpp
 	$(CXX) $(COMPFLAGS) -c $<
-
 -include $(OBJ:.o=.d)	
 
 .PHONY: clean

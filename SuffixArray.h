@@ -98,13 +98,6 @@ private:
   // Searching this array allows mapping from the suffix array to generalized
   // suffix array
   
-  std::pair<unsigned int, unsigned int> 
-    binarySearch(std::vector<std::pair<unsigned int, 
-    unsigned int> > &BSA, unsigned int suffix_index);
-  // a binary search algorithm that returns the index of a read, 
-  // and its start position in the single concatenation. 
-  // by returning the start position, we identify which 
-  // read a suffix is from, and we can calculte the suffixes offset
 
 public:
   SuffixArray(ReadsManipulator &reads, uint8_t min_suffix);
@@ -125,6 +118,14 @@ public:
 
   unsigned int getSize();
   // returns the size of the SA
+
+  std::pair<unsigned int, unsigned int> 
+    binarySearch(std::vector<std::pair<unsigned int, 
+    unsigned int> > &BSA, unsigned int suffix_index);
+  // a binary search algorithm that returns the index of a read, 
+  // and its start position in the single concatenation. 
+  // by returning the start position, we identify which 
+  // read a suffix is from, and we can calculte the suffixes offset
 
 };
 
