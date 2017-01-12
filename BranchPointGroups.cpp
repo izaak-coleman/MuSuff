@@ -526,60 +526,81 @@ string BranchPointGroups::reverseComplementString(string s){
 }
 
 
+//void BranchPointGroups::extractNonMutatedAlleles() {
+//// NB: When we perform integer grouping, this will have be be performed
+//// in forward and reverse orientation
+//
+//  // only need to seach overlap in each orientation, rather than whole set
+//  // because the sequence is identical
+//  bool searched_forward = false, searched_reverse = false;
+//
+//  for(bp_block &block : BreakPointBlocks) {
+//
+//    if(searched_forward && searched_reverse) {  // finished search
+//      break;
+//    }
+//
+//    for(read_tag tag : block.block) {
+//      if(searched_forward && (tag.orientation == RIGHT)) { // done fwd search
+//        continue;
+//      }
+//      if(searched_reverse && (tag.orientation == LEFT)) {
+//        continue;
+//      }
+//
+//      // if passed here, we will begin extracting the non mutated reads
+//      // that also share the same 30bp alignment with the group in 
+//      // both orientations, 
+//
+//      // get the read the tag represents
+//      string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
+//
+//      // get the alligned section
+//      string aligned_section = read.substr(tag.offset, 30);
+//
+//      long long int index = binarySearch(aligned_section); // MAYBE SWITCH FOr REGULAR BS
+//      if(index == -1) {
+//        cout << "Binary search failed for block: " << block.id << endl;
+//        cout << "Searching on: " << ((tag.orientation == RIGHT) ?  "RIGHT" :
+//          "LEFT") << endl;
+//      }
+//      else {
+//        extendBlock(index, block.block, tag.orientation); // h reads assigned to same or
+//      }
+//
+//      // update search switches
+//      if(tag.orientation == RIGHT) {
+//        searched_forward = true;
+//      }
+//      else {
+//        searched_reverse = true;
+//      }
+//    }
+//
+//    searched_forward = false;
+//    searched_reverse = false;
+//
+//  }
+//}
+
 void BranchPointGroups::extractNonMutatedAlleles() {
-// NB: When we perform integer grouping, this will have be be performed
-// in forward and reverse orientation
+  for
+    (bp_block &block : BreakPointBlocks) {
+    read_tag tag = *block.block.begin();  // copy first element
+    string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
+    read = read.substr(tag.offset, reads->getMinSuffixSize());
+    string rev_read = reverseComplementString(read);
 
-  // only need to seach overlap in each orientation, rather than whole set
-  // because the sequence is identical
-  bool searched_forward = false, searched_reverse = false;
+    long long int fwd_index = binarySearch(read);
+    long long int rev_index = binarySearch(rev_read);
 
-  for(bp_block &block : BreakPointBlocks) {
-
-    if(searched_forward && searched_reverse) {  // finished search
-      break;
+    if (fwd_index != -1) {
+      extendBlock(fwd_index, block.block, tag.orientation);
     }
 
-    for(read_tag tag : block.block) {
-      if(searched_forward && (tag.orientation == RIGHT)) { // done fwd search
-        continue;
-      }
-      if(searched_reverse && (tag.orientation == LEFT)) {
-        continue;
-      }
-
-      // if passed here, we will begin extracting the non mutated reads
-      // that also share the same 30bp alignment with the group in 
-      // both orientations, 
-
-      // get the read the tag represents
-      string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
-
-      // get the alligned section
-      string aligned_section = read.substr(tag.offset, 30);
-
-      long long int index = binarySearch(aligned_section); // MAYBE SWITCH FOr REGULAR BS
-      if(index == -1) {
-        cout << "Binary search failed for block: " << block.id << endl;
-        cout << "Searching on: " << ((tag.orientation == RIGHT) ?  "RIGHT" :
-          "LEFT") << endl;
-      }
-      else {
-        extendBlock(index, block.block, tag.orientation); // h reads assigned to same or
-      }
-
-      // update search switches
-      if(tag.orientation == RIGHT) {
-        searched_forward = true;
-      }
-      else {
-        searched_reverse = true;
-      }
+    if (rev_index != -1) {
+      extendBlock(rev_index, block.block, !tag.orientation);
     }
-
-    searched_forward = false;
-    searched_reverse = false;
-
   }
 }
 
@@ -734,12 +755,14 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     }
   }// end for
 
-  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  //for(string s : aligned_block) { // SHOW ALIGNED BLOCK
-  //  cout << s << endl;
-  //}
-  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  //cout << cns << endl << endl;
+  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
+    cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
+         << ((type_subset[i].tissue_type % 2) ? ", H" : 
+             ((type_subset[i].tissue_type == SWITCHED) ? ", S" : ", T")) << endl;
+  }
+  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  cout << cns << endl << endl;
 
   //for(vector<int> v : align_counter) {
   //  for(int i : v) {
@@ -1292,7 +1315,7 @@ void BranchPointGroups::printBreakPointBlocks() {
 //
 
 
-//void BranchPointGroups::generateBranchpointGroups() {
+//void BranchPointGroups::generateBranchpointGroupa() {
 //
 //  // Pass through SA locating unique sequences
 //  for(int i=0; i < SA->getSize(); i++) {

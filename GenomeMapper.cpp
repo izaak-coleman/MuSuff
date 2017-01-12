@@ -102,13 +102,13 @@ void GenomeMapper::buildConsensusPairs() {
     trimCancerConsensus(pair);                // trim extra cancer sequence
 
     //// TURN OFF MASK
-    //bool low_quality_block = false;
-    //maskLowConfidencePositions(pair, healthy_base_frequency, 
-    //    tumour_base_frequency, low_quality_block);
+    bool low_quality_block = false;
+    maskLowConfidencePositions(pair, healthy_base_frequency, 
+        tumour_base_frequency, low_quality_block);
 
-    //if (low_quality_block) {
-    //  continue;
-    //}
+    if (low_quality_block) {
+      continue;
+    }
     consensus_pairs.push_back(pair);
   }
   cout << "Skipped " << continued << endl;
@@ -450,7 +450,7 @@ void GenomeMapper::countSNVs(snv_aln_info &alignment, int ohang) {
   for(int i=0; i < alignment.mutated_cns.size() - 1; i++) {
     if (alignment.mutated_cns[i] != alignment.non_mutated_cns[i + ohang] &&
         alignment.mutated_cns[i+1] != alignment.non_mutated_cns[i+1 + ohang]) {
-      return; // no not count 
+      return;
     }
   }
 
