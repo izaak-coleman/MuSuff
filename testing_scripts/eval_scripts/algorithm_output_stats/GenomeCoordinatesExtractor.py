@@ -23,3 +23,11 @@ class GenomeCoordinatesExtractor:
         sequence = sequence + line.strip()
     self.fasta_data[header] = (nonNStartPos(sequence), sequence)
     fasta_handle.close()
+
+  def nonNStartPos(self, sequence):
+    n = 0
+    for char in sequence:
+      if char == "N":
+        n = n + 1
+      else:
+        return n
