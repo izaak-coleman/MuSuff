@@ -7,8 +7,8 @@ class GenomeCoordinatesExtractor:
 
   def __init__(self, fasta_filename, coordinate_filename, flanking_dist):
     self.flanking_dist = flanking_dist
-    extractFastaData(fasta_filename)
-    extractCoordinates(coordinate_filename)
+    self.extractFastaData(fasta_filename)
+    self.extractCoordinates(coordinate_filename)
 
   def extractFastaData(self, fasta_filename):
     fasta_handle = open(fasta_filename, 'r')
@@ -40,3 +40,12 @@ class GenomeCoordinatesExtractor:
       coordinate = line[1:line.find(",")]
       self.coordinates.append(int(coordinate))
     coordinate_handle.close()
+
+  def print_fasta_data(self):
+    pprint.pprint(self.fasta_data)
+  
+  def print_coordinates(self):
+    pprint.pprint(self.coordinates)
+
+  def print_flanking_dist(self):
+    print self.flanking_dist
