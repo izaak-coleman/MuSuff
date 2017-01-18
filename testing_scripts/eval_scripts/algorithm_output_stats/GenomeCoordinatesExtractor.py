@@ -49,3 +49,12 @@ class GenomeCoordinatesExtractor:
 
   def print_flanking_dist(self):
     print self.flanking_dist
+
+if __name__ == "__main__":
+  if len(sys.argv) != 4:
+    print "Usage <exe> <fasta_file> <coordinate_file> <flanking_dist>"
+
+    ge = GenomeCoordinateExtractor(sys.argv[1], sys.argv[2], sys.argv[3])
+    ge.print_fasta_data()
+    ge.print_coordinates()
+    ge.print_flaning_dist()
