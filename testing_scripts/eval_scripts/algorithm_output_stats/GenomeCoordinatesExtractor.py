@@ -1,3 +1,5 @@
+import sys
+import pprint
 class GenomeCoordinatesExtractor:
   """GenomeCoordinatesExtractor takes a fastq file and a list of coordinates,
   and prints out the DNA sequence from -flanking_dist to +flanking_dist
@@ -6,12 +8,11 @@ class GenomeCoordinatesExtractor:
   def __init__(self, fasta_filename, coordinate_filename, flanking_dist):
     self.flanking_dist = flanking_dist
     extractFastaData(fasta_filename)
-    extractCoordinate(coordinate_filename)
+    extractCoordinates(coordinate_filename)
 
   def extractFastaData(self, fasta_filename):
     fasta_handle = open(fasta_filename, 'r')
     self.fasta_data = {}
-  
     header, sequence = "", ""
     for line in fasta_handle:
       if line[0] == ">":      # start new entry
@@ -31,3 +32,11 @@ class GenomeCoordinatesExtractor:
         n = n + 1
       else:
         return n
+
+  def extractCoordinates(self, coordinate_filename):
+    coordinate_handle = open(coordinate_filename, 'r')
+    self.coordinates = []
+    for line in coordinate_handle:
+      coordinate = line[1:line.find(",")]
+      self.coordinates.append(int(coordinate))
+    coordinate_handle.close()
