@@ -1,6 +1,6 @@
 import sys
 import pprint
-class GenomeCoordinatesExtractor:
+class GenomeCoordinateExtractor:
   """GenomeCoordinatesExtractor takes a fastq file and a list of coordinates,
   and prints out the DNA sequence from -flanking_dist to +flanking_dist
   either side of the coordinate from the fastq file"""
@@ -9,6 +9,7 @@ class GenomeCoordinatesExtractor:
     self.flanking_dist = flanking_dist
     self.extractFastaData(fasta_filename)
     self.extractCoordinates(coordinate_filename)
+    print "hello"
 
   def extractFastaData(self, fasta_filename):
     fasta_handle = open(fasta_filename, 'r')
@@ -17,12 +18,12 @@ class GenomeCoordinatesExtractor:
     for line in fasta_handle:
       if line[0] == ">":      # start new entry
         if header != "":
-          self.fasta_data[header] = (nonNStartPos(sequence), sequence)
+          self.fasta_data[header] = (self.nonNStartPos(sequence), sequence)
         header = line.strip()
         sequence = ""
       else:
         sequence = sequence + line.strip()
-    self.fasta_data[header] = (nonNStartPos(sequence), sequence)
+    self.fasta_data[header] = (self.nonNStartPos(sequence), sequence)
     fasta_handle.close()
 
   def nonNStartPos(self, sequence):
@@ -54,7 +55,7 @@ if __name__ == "__main__":
   if len(sys.argv) != 4:
     print "Usage <exe> <fasta_file> <coordinate_file> <flanking_dist>"
 
-    ge = GenomeCoordinateExtractor(sys.argv[1], sys.argv[2], sys.argv[3])
-    ge.print_fasta_data()
-    ge.print_coordinates()
-    ge.print_flaning_dist()
+  ge = GenomeCoordinateExtractor(sys.argv[1], sys.argv[2], sys.argv[3])
+  ge.print_fasta_data()
+  ge.print_coordinates()
+  ge.print_flanking_dist()
