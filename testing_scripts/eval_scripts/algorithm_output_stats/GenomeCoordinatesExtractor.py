@@ -4,9 +4,9 @@ class GenomeCoordinateExtractor:
   """GenomeCoordinatesExtractor takes a fastq file and a list of coordinates,
   and prints out the DNA sequence from -flanking_dist to +flanking_dist
   either side of the coordinate from the fastq file"""
-  def __init__(self, fasta_filename, coordinate_filename, out_filename,  
-      flanking_dist):
-    self.flanking_dist = flanking_dist
+  def __init__(self, fasta_filename, coordinate_filename, flanking_dist, 
+      out_filename):
+    self.flanking_dist = int(flanking_dist)
     self.out_filename = out_filename
     self.fasta_data = {}
     self.coordinates = []
@@ -51,27 +51,37 @@ class GenomeCoordinateExtractor:
     for line in coordinate_handle:
       header = line[1:line.find(",")]
       line = line[line.find(",")+1:]
-      location = line[:line.find(",")]
-      self.coordinates.append( (header, int(location)) ) # tupleize
+      coordinate = line[:line.find(",")]
+      self.coordinates.append( (header, int(coordinate)) ) # tupleize
     coordinate_handle.close()
 
-  def extractDNAAroundCoordinates(self):
+  def extractGenomicSequences(self):
     """Function loops through coordinates and extracts the (nEndPos, seq) value
       associated with the coordinate header (key). The function then
       extracts the section of DNA around the coordinate that is +/- the 
       flanking distance of the coordinate and loads data into a list."""
     for (header, coordinate) in self.coordinates:
       (n_pos, sequence) = self.fasta_data[header] # retrieve the loc, seq tuple
-      subseq = sequence[coordinate-self.flanking_dist:coordinate]
-      subseq = subseq + sequence[coordinate:coordinate+self.flanking_dist+1]
+
+      left_most = coordinate - self.flanking_dist
+      right_most = coordinate + self.flanking_dist + 1
+      if left_most < 0:                     # boundary check
+        left_most = 0
+      if right_most > len(sequence):
+        right_most = len(sequence)
+
+      subseq = sequence[left_most:coordinate]
+      subseq = subseq + sequence[coordinate:right_most]
       self.coord_seq_pairs.append( (header, coordinate, subseq) )
 
   def printCoordSeqPairs(self):
     out_handle = open(self.out_filename, 'w')
     for (header, coordinate, subseq) in self.coord_seq_pairs:
-      metaData = header + ": " + coordinate
+      metaData = header + ": " + str(coordinate)
       out_handle.write(metaData)
+      out_handle.write("\n")
       out_handle.write(subseq)
+      out_handle.write("\n")
       out_handle.write("\n")
     out_handle.close()
 
@@ -88,8 +98,9 @@ if __name__ == "__main__":
   if len(sys.argv) != 5:
     print "Usage <exe> <fasta_file> <coordinate_file> <flanking_dist>"
 
-  ge = GenomeCoordinateExtractor(sys.argv[1], sys.argv[2], sys.argv[3],
-      sys.argv[4]))
+  ge = GenomeCoordinateExtractor(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
   ge.print_fasta_data()
   ge.print_coordinates()
   ge.print_flanking_dist()
+  ge.extractGenomicSequences()
+  ge.printCoordSeqPairs()
