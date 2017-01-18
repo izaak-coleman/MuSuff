@@ -9,24 +9,29 @@ class GenomeCoordinateExtractor:
     self.flanking_dist = flanking_dist
     self.extractFastaData(fasta_filename)
     self.extractCoordinates(coordinate_filename)
-    print "hello"
 
   def extractFastaData(self, fasta_filename):
+    """ Loads each fasta sequence in the file into dictionary self.fastq_data.
+      The sequence header is used as the key, whilst values are of the
+      for (endNPos, sequence), where endNPos is the index of the first leftmost
+      non-N character in sequence, and sequence is the fasta string."""
+
     fasta_handle = open(fasta_filename, 'r')
     self.fasta_data = {}
     header, sequence = "", ""
     for line in fasta_handle:
-      if line[0] == ">":      # start new entry
-        if header != "":
+      if line[0] == ">":      # new sequence, new dict entry
+        if header != "":      # skip loop initialization val
           self.fasta_data[header] = (self.nonNStartPos(sequence), sequence)
         header = line.strip()
         sequence = ""
       else:
         sequence = sequence + line.strip()
-    self.fasta_data[header] = (self.nonNStartPos(sequence), sequence)
+    self.fasta_data[header] = (self.nonNStartPos(sequence), sequence) # add last
     fasta_handle.close()
 
   def nonNStartPos(self, sequence):
+    """ Returns the index of the first leftmost non-N char in sequence."""
     n = 0
     for char in sequence:
       if char == "N":
@@ -35,6 +40,11 @@ class GenomeCoordinateExtractor:
         return n
 
   def extractCoordinates(self, coordinate_filename):
+    """ Takes a file with a list of coodinates of form (loc, __, __) where
+      __ can be anything and loc is an integer value representing the
+      coordinate of the mutation. Note, format MUST remain comma delim, 
+      or modify line slicing. """
+
     coordinate_handle = open(coordinate_filename, 'r')
     self.coordinates = []
     for line in coordinate_handle:
