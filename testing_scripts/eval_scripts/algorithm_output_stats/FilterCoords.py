@@ -55,7 +55,8 @@ class FilterCoords:
     
     oFileHandle = open(oFileName, 'w')
     for coord in unReportedCoords:
-      oFileHandle.write(str(coord) + "\n")
+      coordString = str(coord) + "\n"
+      oFileHandle.write(coordString.replace("'", ""))
 
   def printList(self, l):
     for e in l:

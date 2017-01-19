@@ -97,7 +97,7 @@ class GenomeCoordinateExtractor:
 
 if __name__ == "__main__":
   if len(sys.argv) != 5:
-    print "Usage <exe> <fasta_file> <coordinate_file> <flanking_dist>"
+    print "Usage <exe> <fasta_file> <coordinate_file> <flanking_dist> <oFileName>"
 
   ge = GenomeCoordinateExtractor(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
   ge.extractGenomicSequences()
