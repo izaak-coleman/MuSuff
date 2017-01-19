@@ -48,11 +48,12 @@ class GenomeCoordinateExtractor:
       coordinate of the mutation. Note, format MUST remain comma delim, 
       or modify line slicing. """
     coordinate_handle = open(coordinate_filename, 'r')
+    SWITCH_INDEX = -1                   # bwa 1-based, pystring 0-based
     for line in coordinate_handle:
       header = line[1:line.find(",")]
       line = line[line.find(",")+1:]
       coordinate = line[:line.find(",")]
-      self.coordinates.append( (header, int(coordinate)) ) # tupleize
+      self.coordinates.append( (header, int(coordinate) + SWITCH_INDEX) ) 
     coordinate_handle.close()
 
   def extractGenomicSequences(self):
@@ -99,8 +100,5 @@ if __name__ == "__main__":
     print "Usage <exe> <fasta_file> <coordinate_file> <flanking_dist>"
 
   ge = GenomeCoordinateExtractor(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-  ge.print_fasta_data()
-  ge.print_coordinates()
-  ge.print_flanking_dist()
   ge.extractGenomicSequences()
   ge.printCoordSeqPairs()
