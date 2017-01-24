@@ -64,7 +64,7 @@ class FilterCoords:
 
 if __name__ == "__main__":
   if len(sys.argv) != 2:
-    print("Usage: <exe> <SNV_locations>")
+    print("Usage: <exe> <header>")
     sys.exit()
   obj = FilterCoords(sys.argv[1])
   obj.getCoordsFromSNV_locations()

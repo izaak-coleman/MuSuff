@@ -49,10 +49,10 @@ class GenomeCoordinateExtractor:
       or modify line slicing. """
     coordinate_handle = open(coordinate_filename, 'r')
     for line in coordinate_handle:
-      header = line[1:line.find(",")]
-      line = line[line.find(",")+1:]
-      coordinate = line[:line.find(",")]
-      self.coordinates.append( (header, int(coordinate)) ) 
+      fields = line.split(",")
+      fields = [field.strip() for field in fields]
+      fields = [field.replace("(", "").replace(")", "") for field in fields]
+      self.coordinates.append( (fields[0], int(fields[1]), fields[2], fields[3]) ) 
     coordinate_handle.close()
 
   def extractGenomicSequences(self):
@@ -60,7 +60,7 @@ class GenomeCoordinateExtractor:
       associated with the coordinate header (key). The function then
       extracts the section of DNA around the coordinate that is +/- the 
       flanking distance of the coordinate and loads data into a list."""
-    for (header, coordinate) in self.coordinates:
+    for (header, coordinate, hBase, cBase) in self.coordinates:
       (n_pos, sequence) = self.fasta_data[header] # retrieve the loc, seq tuple
 
       left_most = coordinate - self.flanking_dist
@@ -72,12 +72,12 @@ class GenomeCoordinateExtractor:
 
       subseq = sequence[left_most:coordinate]
       subseq = subseq + sequence[coordinate:right_most]
-      self.coord_seq_pairs.append( (header, coordinate, subseq) )
+      self.coord_seq_pairs.append( (header, coordinate, subseq, hBase, cBase) )
 
   def printCoordSeqPairs(self):
     out_handle = open(self.out_filename, 'w')
-    for (header, coordinate, subseq) in self.coord_seq_pairs:
-      metaData = header + " --- " + str(coordinate + 1) # back to bwa 1-based
+    for (header, coordinate, subseq, hBase, cBase) in self.coord_seq_pairs:
+      metaData = "%s --- %d %s:%s" % (header, (coordinate + 1), hBase, cBase)
       out_handle.write(metaData)
       out_handle.write("\n")
       out_handle.write(subseq)
