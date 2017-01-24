@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <set>
 #include <string>
 #include <mutex>
 #include <thread>
@@ -57,7 +58,8 @@ void loadFastq(std::string filename, std::vector<std::string> &p_data);
 void qualityProcessRawData(std::vector<fastq_t> *r_data, 
                            std::vector<std::string> *p_data,
                            int from,int to, int tid);
-std::vector<gsaTuple> buildGSA(std::vector<std::string> fileNames);
+std::vector<gsaTuple> buildGSA(std::vector<std::string> const& fileNames,
+    std::vector<std::string> & reads);
 
 std::pair<unsigned int, unsigned int> binarySearch(
                   std::vector<std::pair<unsigned int, unsigned int> > const& BSA, 
@@ -65,6 +67,15 @@ std::pair<unsigned int, unsigned int> binarySearch(
 
 std::vector<std::pair<unsigned int, unsigned int> > constructBSA(
     std::vector<std::string> const & reads);
+
+std::vector<gsaTuple>::const_iterator binarySearch(std::vector<std::string> const& reads,
+    std::vector<gsaTuple> const& gsa, std::string const& query);
+
+int lcp(std::string const& a, std::string const& b);
+
+std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const&
+    reads, std::vector<gsaTuple> const& gsa, std::string const& query);
+// main
 
 int main(int argc, char **argv) {
   if (argc != 2) {
@@ -76,36 +87,102 @@ int main(int argc, char **argv) {
   splitFileNamesOnDataType(healthyFileNames,cancerFileNames, argv[1]);
 
   std::vector<std::string> cancerReads, healthyReads;
+  std::vector<gsaTuple> cancerGSA, healthyGSA;
   if (!healthyFileNames.empty()) {
-    std::vector<gsaTuple> healthyGSA = buildGSA(healthyFileNames);
+    healthyGSA = buildGSA(healthyFileNames, healthyReads);
   }
   if (!cancerFileNames.empty()) {
-    std::vector<gsaTuple> cancerGSA  = buildGSA(cancerFileNames);
+    cancerGSA  = buildGSA(cancerFileNames, cancerReads);
   }
+
+  std::cout << "Size of cancer gsa: " << cancerGSA.size() << std::endl;
+
+  for (gsaTuple const& tup : cancerGSA) {
+    std::cout << cancerReads[tup.read_idx].substr(tup.offset) << std::endl;
+  }
+  
+  std::string const& read = cancerReads[0];
+  int const * result = binarySearch(cancerReads, cancerGSA, read.substr(0, 30));
+  std::cout << "Searching for read:    " << read.substr(0,30) << std::endl;
+  if (result != nullptr) {
+    std::cout << "Found read. Result is: ";
+    std::cout << cancerReads[cancerGSA[*result].read_idx].substr(cancerGSA[*result].offset);
+    std::cout << std::endl;
+  }
+  else{
+    std::cout << "Nully" << std::endl;
+  }
+
+  delete result;
 }
 
-gsaTuple binarySearch(std::vector<std::string> const& reads, 
-    std::vector<gsaTuples> const& gsa, std::string query)
-{
-  unsigned int left{0}, right{reads.size()}, mid;
+std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const& reads,
+    std::vector<gsaTuple> const& gsa, std::string const& query) {
+  std::set<unsigned int> readsCoveringLocation;
 
+  for (int i=0; i <= query.size() - 30; i++) {
+    str::string querySubstr = query.substr(i, 30);
+    std::vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa, querySubstr);
+    if (result != gsa.end()) {
+      // search back
+      std::vector<gsaTuple>::const_iterator leftArrow = result-1;
+      if (leftArrow >= gsa.begin()) {
+        while (
+            lcp(reads[leftArrow->read_idx]
+              .substr(leftArrow->offset), querySubstr)
+              >= MIN_SUFFIX_SIZE) {
+          readsCoveringLocation.insert(leftArrow->read_idx);
+          leftArrow--;
+          if (leftArrow < gsa.begin()) break;
+        }
+      }
+      // search forward
+      std::vector<gsaTuple>::const_iterator rightArrow = result + 1;
+      if (rightArrow < gsa.end()) {
+        while (lcp(reads[rightArrow->read_idx]
+              .substr(rightArrow->offset), querySubstr
+              >= MIN_SUFFIX_SIZE) {
+            readsCoveringLocation.insert(rightArrow->read_idx);
+            rightArrow++;
+            if (rightArrow >= reads.end()) break;
+        }
+      }
+    }
+  }
+  return readsCoveringLocation;
+}
+
+std::vector<gsaTuple>::const_iterator  binarySearch(std::vector<std::string> const& reads, 
+    std::vector<gsaTuple> const& gsa, std::string const& query)
+{
+  long unsigned int left{0};
+  long unsigned int right{gsa.size()};
+  long unsigned int mid;
   while (left < right) {
     mid = left + ((right - left) / 2);
     std::string suffix = reads[gsa[mid].read_idx].substr(gsa[mid].offset);
-
-    if (suffix < query) left = mid+1;
-    else if (suffix > query) right = mid;
-    else {
-      return gsa[mid]
+    std::cout << suffix << std::endl;
+    if (lcp(query, reads[gsa[mid].read_idx].substr(gsa[mid].offset)) >=
+        MIN_SUFFIX_SIZE) {
+      return gsa.begin() + mid;
     }
+    else if (suffix < query) left = mid+1;
+    else right = mid;
   }
+  return gsa.end();
+}
+
+int lcp(std::string const& a, std::string const& b) {
+  int lcp = 0;
+  for(; a[lcp] == b[lcp]; lcp++);
+  return lcp;
 }
 
 
-std::vector<gsaTuple> buildGSA(std::vector<std::string> fileNames) {
+std::vector<gsaTuple> buildGSA(std::vector<std::string> const& fileNames,
+    std::vector<std::string> & reads) {
 
   // extract reads from tar.gz file
-  std::vector<std::string> reads;
   for (std::string const& filename  : fileNames) {
     loadFastq(filename, reads);
   }
