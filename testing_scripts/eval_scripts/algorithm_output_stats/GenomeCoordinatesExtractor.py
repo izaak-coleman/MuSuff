@@ -77,7 +77,7 @@ class GenomeCoordinateExtractor:
   def printCoordSeqPairs(self):
     out_handle = open(self.out_filename, 'w')
     for (header, coordinate, subseq, hBase, cBase) in self.coord_seq_pairs:
-      metaData = "%s --- %d %s:%s" % (header, (coordinate + 1), hBase, cBase)
+      metaData = "%s --- %d:%s:%s" % (header, (coordinate + 1), hBase, cBase)
       out_handle.write(metaData)
       out_handle.write("\n")
       out_handle.write(subseq)
