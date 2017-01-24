@@ -9,11 +9,14 @@ struct coordinateData {
   std::string header;
   unsigned int coordinate;
   std::string sequence;
-  coordinateData(std::string h, unsigned int c, std::string s): header{h},
-    coordinate{c}, sequence{s} {}
+  char hBase;
+  char cBase;
+  coordinateData(std::string h, unsigned int c, std::string s,
+                 char hb, char cb): 
+    header{h}, coordinate{c}, sequence{s}, hBase(hb), cBase(cb) {}
 };
 
-vector<coordinateData> parseCoordinateData(std::string filename);
+std::vector<coordinateData> parseCoordinateData(std::string filename);
 void printCoordinateData(std::vector<coordinateData> const& coordData);
 
 #endif

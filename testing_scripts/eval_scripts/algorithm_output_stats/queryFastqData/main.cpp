@@ -1,5 +1,6 @@
 // main.cpp
 #include <iostream>
+#include <vector>
 #include "parse_coordinate_data.h"
 
 using namespace std;
@@ -11,5 +12,6 @@ int main(int argc, char **argv) {
   }
 
   std::vector<coordinateData> coordData = parseCoordinateData(argv[1]);
+  printCoordinateData(coordData);
   return 0;
 }
