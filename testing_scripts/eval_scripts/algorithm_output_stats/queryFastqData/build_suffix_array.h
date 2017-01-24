@@ -1,11 +1,11 @@
 #ifndef BUILD_SUFFIX_ARRAY
 #define BUILD_SUFFIX_ARRAY
-#endif
 
 #include <vector>
 #include <set>
 #include <string>
 #include <mutex>
+#include <iostream>
 #include <thread>
 #include <algorithm>
 
@@ -13,7 +13,8 @@
 #include "string.h"
 #include "parse_coordinate_data.h"
 
-std::mutex quality_processing_lock;
+enum class TissueType {tumour, healthy};
+
 
 struct fastq_t {  
   std::string id, seq, qual;
@@ -24,8 +25,9 @@ struct gsaTuple {
   unsigned int offset;
   gsaTuple(unsigned int r, unsigned int o):read_idx(r), offset(o) {}
 
-  friend ostream & operator<<(ostream & cout, gsaTuple const& tup) {
-    std::cout << "(" << tup.read_idx << "," << tup.offset << ")" << std::endl;
+  friend std::ostream & operator<<(std::ostream & cout, gsaTuple const& tup) {
+    cout << "(" << tup.read_idx << "," << tup.offset << ")" << std::endl;
+    return cout;
   }
 };
 
@@ -35,6 +37,7 @@ struct snippetData {
   unsigned int mutationLocation;
   char healthy;
   char cancer;
+  TissueType tissue; 
   std::vector<std::string> reads;
   std::vector<unsigned int> read_idx;
 };
@@ -57,6 +60,7 @@ std::pair<unsigned int, unsigned int> binarySearch(
 std::vector<std::pair<unsigned int, unsigned int> > constructBSA(
     std::vector<std::string> const & reads);
 
+
 std::vector<gsaTuple>::const_iterator binarySearch(std::vector<std::string> const& reads,
     std::vector<gsaTuple> const& gsa, std::string const& query);
 
@@ -65,7 +69,11 @@ int lcp(std::string const& a, std::string const& b);
 std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const&
     reads, std::vector<gsaTuple> const& gsa, std::string const& query);
 
-std::vector<snippetData> extractreadsCoveringSnippets(std::vector<coordinateData
+std::vector<snippetData>
+extractReadsCoveringSnippets(std::vector<coordinateData>
     const& coords, std::vector<std::string> const& reads, 
-    std::vector<gsaTuple> const& gsa);
+    std::vector<gsaTuple> const& gsa,
+    TissueType tissue);
 
+void printSnippetData(std::ostream & out, std::vector<snippetData> const& data);
+#endif

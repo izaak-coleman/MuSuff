@@ -19,6 +19,8 @@
 #include <cstdlib>
 
 #include "string.h"
+#include "build_suffix_array.h" 
+std::mutex quality_processing_lock;
 
 KSEQ_INIT(gzFile, gzread);
 static const int NUM_ARGS = 4;
@@ -34,75 +36,84 @@ static const char PHRED_20 = '5';   // lowest high quality phred score
 
 static const std::string REMOVED_TOKENS = "N"; // remove N from fastq
 static const std::string TERM_CHAR = "$";      // suffix termination character
-std::mutex quality_processing_lock;
 
 // main
 
-int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::cout << "Usage: <exe> <datafilelist>" << std::endl;
-    return -1;
-  }
+//int main(int argc, char **argv) {
+//  if (argc != 2) {
+//    std::cout << "Usage: <exe> <datafilelist>" << std::endl;
+//    return -1;
+//  }
+//
+//  std::vector<std::string> cancerFileNames, healthyFileNames;
+//  splitFileNamesOnDataType(healthyFileNames,cancerFileNames, argv[1]);
+//
+//  std::vector<std::string> cancerReads, healthyReads;
+//  std::vector<gsaTuple> cancerGSA, healthyGSA;
+//  if (!healthyFileNames.empty()) {
+//    healthyGSA = buildGSA(healthyFileNames, healthyReads);
+//  }
+//  if (!cancerFileNames.empty()) {
+//    cancerGSA  = buildGSA(cancerFileNames, cancerReads);
+//  }
+//
+//  std::cout << "Size of cancer gsa: " << cancerGSA.size() << std::endl;
+//  std::cout << "Size of cancer reads: " << cancerReads.size() << std::endl;
+//
+//  for (gsaTuple const& tup : cancerGSA) {
+//    std::cout << cancerReads[tup.read_idx].substr(tup.offset) << std::endl;
+//  }
+//  
+//  std::string read = "HelloMrPostmanLookAtMeWoahYeah";
+//  std::set<unsigned int> found_reads = findReadsCoveringLocation(cancerReads,
+//      cancerGSA, read);
+//  std::cout << std::endl << std::endl << "Identfied reads: " << std::endl;
+//  for (unsigned int read_idx : found_reads) {
+//    std::cout << cancerReads[read_idx] << std::endl;
+//  }
+//}
 
-  std::vector<std::string> cancerFileNames, healthyFileNames;
-  splitFileNamesOnDataType(healthyFileNames,cancerFileNames, argv[1]);
-
-  std::vector<std::string> cancerReads, healthyReads;
-  std::vector<gsaTuple> cancerGSA, healthyGSA;
-  if (!healthyFileNames.empty()) {
-    healthyGSA = buildGSA(healthyFileNames, healthyReads);
-  }
-  if (!cancerFileNames.empty()) {
-    cancerGSA  = buildGSA(cancerFileNames, cancerReads);
-  }
-
-  std::cout << "Size of cancer gsa: " << cancerGSA.size() << std::endl;
-  std::cout << "Size of cancer reads: " << cancerReads.size() << std::endl;
-
-  for (gsaTuple const& tup : cancerGSA) {
-    std::cout << cancerReads[tup.read_idx].substr(tup.offset) << std::endl;
-  }
-  
-  std::string read = "HelloMrPostmanLookAtMeWoahYeah";
-  std::set<unsigned int> found_reads = findReadsCoveringLocation(cancerReads,
-      cancerGSA, read);
-  std::cout << std::endl << std::endl << "Identfied reads: " << std::endl;
-  for (unsigned int read_idx : found_reads) {
-    std::cout << cancerReads[read_idx] << std::endl;
-  }
-}
 
 std::vector<snippetData>
-extractreadsCoveringSnippets(std::vector<coordinateData> const& coords,
+extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
                              std::vector<std::string> const& reads,
-                             std::vector<gsaTuple> const& gsa) {
+                             std::vector<gsaTuple> const& gsa,
+                             TissueType tissue) {
 
   std::vector<snippetData> results;
-  for (coord const& : coords) {
+  for (coordinateData const& coord : coords) {
     std::set<unsigned int> readsCoveringCoord;
     readsCoveringCoord = findReadsCoveringLocation(reads, gsa, coord.sequence);
     snippetData entry; 
     entry.header = coord.header;
     entry.snippet = coord.sequence;
+    entry.healthy = coord.hBase;
+    entry.cancer = coord.cBase;
     entry.mutationLocation  = coord.coordinate;
+    entry.tissue = tissue;
     for (unsigned int read_idx : readsCoveringCoord) {
       entry.reads.push_back(reads[read_idx]);
-      entry.reads_idx.push_back(read_idx);
+      entry.read_idx.push_back(read_idx);
     }
 
     // done filling entry data
     results.push_back(entry);
   }
+  return results;
 }
 
-void printSnippetData(std::vector<snippetData> const& data) {
+void printSnippetData(std::ostream & out, std::vector<snippetData> const& data) {
   for (snippetData const& entry : data) {
-    std::cout << "Header: "  << entry.header << std::endl;
-    std::cout << "Snippt: "  << entry.snippet << std::endl;
-    std::cout << "Coord : "  << entry.mutationLocation << std::endl;
-    std::cout << "Reads : " << std::endl;
-    for (int i = 0; i < entry.reads(); i++) {
-      std::cout << entry.reads[i] << " :: "
+    out << "Header: "  << entry.header 
+              << " - " << entry.healthy << ":" << entry.cancer
+              << " - " << ((entry.tissue == TissueType::healthy) ? "H":"T")
+              << std::endl;
+
+    out << "Snippt: "  << entry.snippet << std::endl;
+    out << "Coord : "  << entry.mutationLocation << std::endl;
+    out << "Reads : " << std::endl;
+    for (int i = 0; i < entry.reads.size(); i++) {
+      out << entry.reads[i] << " :: "
                 << entry.read_idx[i] 
                 << std::endl;
     }
