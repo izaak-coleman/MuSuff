@@ -42,7 +42,6 @@ vector<coordinateData> parseCoordinateData(std::string filename) {
     unsigned int coordinate = std::stoi(otherFields[COORDINATE]);
     char hBase = otherFields[HBASE][0];
     char cBase = otherFields[CBASE][0];
-    std::cout << "Seggy" << std::endl;
 
 
     std::string sequence;

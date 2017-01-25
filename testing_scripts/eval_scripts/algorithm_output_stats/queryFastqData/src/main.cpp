@@ -21,8 +21,10 @@ int main(int argc, char **argv) {
   std::vector<coordinateData> coordData = parseCoordinateData(argv[1]);
   std::vector<std::string> cancerFileNames, healthyFileNames;
   splitFileNamesOnDataType(healthyFileNames, cancerFileNames, argv[2]);
-  std::vector<std::string> cancerReads, healthyReads;
 
+
+  // load reads and build gsa's
+  std::vector<std::string> cancerReads, healthyReads;
   std::vector<gsaTuple> healthyGSA, cancerGSA;
   if (!healthyFileNames.empty()) {
     healthyGSA = buildGSA(healthyFileNames, healthyReads);
@@ -31,6 +33,8 @@ int main(int argc, char **argv) {
     cancerGSA = buildGSA(cancerFileNames, cancerReads);
   }
 
+  // extract the cancer and healthy reads covering each coordinate
+  // load into a snippetData struct
   vector<snippetData> cancerExtraction =
     extractReadsCoveringSnippets(coordData, 
                                  cancerReads,
@@ -42,9 +46,11 @@ int main(int argc, char **argv) {
                                  healthyGSA,
                                  TissueType::healthy);
 
+  // concat healthy and cancer entries into cancer
   cancerExtraction.insert(cancerExtraction.end(), healthyExtraction.begin(),
       healthyExtraction.end());   // concat vector
-
+  // sort all the entries on mutationLocation - same indexes will be 
+  // next to each other
   std::sort(cancerExtraction.begin(), cancerExtraction.end(), 
       [] (snippetData const& a, snippetData const& b) {
         return a.mutationLocation < b.mutationLocation;
