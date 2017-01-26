@@ -63,7 +63,15 @@ class AnalyseReadsCoveringFN:
       else:
         self.falseNegData[coordinate].updateInfo(entry)
 
-  def printKeyVals(self):
-    k, v  = self.falseNegData.items()[0]
-    print k
-    print v
+
+  def countThan(self, fun, resultMessage):
+    count = 0
+    for (k, v) in self.falseNegData.items():
+      if fun(len(v["hReads"])) or fun(len(v["cReads"])):
+        print "Coordi : ", str(k)
+        print "H count: ", len(v["hReads"])
+        print "T count: ", len(v["cReads"])
+        count = count + 1
+    print resultMessage, count
+
+
