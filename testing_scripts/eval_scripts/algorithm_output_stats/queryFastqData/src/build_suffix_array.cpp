@@ -150,8 +150,6 @@ std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const&
               .substr(rightArrow->offset), querySubstr)
               >= MIN_SUFFIX_SIZE) {
             readsCoveringLocation.insert(rightArrow->read_idx);
-            std::cout << "Index of input element: " << rightArrow->read_idx <<
-              std::endl;
             rightArrow++;
             if (rightArrow >= gsa.end()) break;
         }
@@ -290,6 +288,7 @@ void splitFileNamesOnDataType(std::vector<std::string> & hFiles,
 
 void loadFastq(std::string filename, std::vector<std::string> &p_data) {
 
+  std::cout << "Loading reads from " << filename << std::endl;
   gzFile data_file;
   data_file = gzopen(filename.c_str(), "r");    // open stream to next fastq.gz 
   kseq_t *seq = kseq_init(data_file);           // init parser
