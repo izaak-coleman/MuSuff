@@ -90,15 +90,52 @@ class AnalyseReadsCoveringFN:
        result["remainingCancer"] = "\n".join(["%s :: %d :: %r" % 
            (read, idx, (idx in remainingReads)) for (read, idx) in v["cReads"])
 
-       result["cPerc"] = len([idx for (_, idx) in v["cReads"] if 
-         (idx in remainingReads)]) / float(len(v["cReads"]))
+       result["cCount"] = (len([idx for (_, idx) in v["cReads"] if 
+         (idx in remainingReads)]),  len(v["cReads"]))
 
-       result["hPerc"] = len([idx for (_, idx) in v["hReads"] if 
-         (idx in remainingReads)]) / float(len(v["hReads"]))
+       result["hCount"] = (len([idx for (_, idx) in v["hReads"] if 
+         (idx in remainingReads)]),  len(v["hReads"]))
 
-       result["tPerc"] = (cPercent * len(v["cReads"]) + 
-                         hPercent * len(v["hReads"])) / 
-                         float(len(v["cReads"]) + len(v["hReads"]))
        result["coordinate"] = k
 
        results.append(result)
+
+    # print stats
+    for result in results:
+      print "Cood: %d\n" % (result["coordinate"])
+
+      hTotal, hRemain = result["hCount"]
+      hPercLeft = hRemain / float(hTotal)
+      print "Healthy (Total, remain, perc left) : %d, %d, %f" % hTotal, hRemain, hPercLeft
+      print "\n"
+
+      cTotal, cRemain = result["cCount"]
+      cPercLeft = cRemain / float(cTotal)
+      print "Cancer (Total, remain, perc left) : %d, %d, %f" % cTotal, cRemain, cPercLeft
+      print "\n"
+      print "\n"
+
+    # print reads
+    for result in results:
+      hTotal, hRemain = result["hCount"]
+      hPercLeft = hRemain / float(hTotal)
+      print "Healthy (Total, remain, perc left) : %d, %d, %f" % hTotal, hRemain, hPercLeft
+      print "\n"
+
+      cTotal, cRemain = result["cCount"]
+      cPercLeft = cRemain / float(cTotal)
+      print "Cancer (Total, remain, perc left) : %d, %d, %f" % cTotal, cRemain, cPercLeft
+      print "\n"
+      print "Reads:\n"
+      print result["remainingHealthy"]
+      print result["remainingCancer"]
+      print "\n"
+      print "\n"
+      print "\n"
+
+
+
+
+
+
+
