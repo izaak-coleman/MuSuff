@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 import AnalyseReadsCoveringFN as fn
 
@@ -16,5 +17,10 @@ def main():
   print "\n\n"
   print "Greater than 70"
   analysis.countThan(lambda x: x > 79, "Count > 79: ")
+  print "\n\n"
+  print "\n\n"
+  analysis.printEntry()
+
+
 
 main()

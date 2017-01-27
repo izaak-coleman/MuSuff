@@ -19,7 +19,8 @@ class FalseNegativeEntry(dict):
     self["snippet"] = entryData[self.SNIPPET_IDX]
     self["coordinate"] = \
     int(entryData[self.COORD_IDX][entryData[self.COORD_IDX].find(":") + 2:])
-    reads = [read[:read.find("$") + 1] for read in entryData[self.READ_IDX:]]
+    reads = [(read[:read.find("$") + 1], read[read.find("::")+3:])
+              for read in entryData[self.READ_IDX:]]
     if tissueType == "H":
       self["hReads"] = reads
     else:
@@ -34,7 +35,8 @@ class FalseNegativeEntry(dict):
   def updateInfo(self, entryData):
     entryData = [line.strip() for line in entryData]
     _, _, _, tissueType = self.extractHeaderInfo(entryData[self.HEADER_IDX])
-    reads = [read[:read.find("$") + 1] for read in entryData[self.READ_IDX:]]
+    reads = [(read[:read.find("$") + 1], read[read.find("::")+3:])
+              for read in entryData[self.READ_IDX:]]
     if tissueType == "H":
       self["hReads"] = reads
     else:
@@ -63,6 +65,8 @@ class AnalyseReadsCoveringFN:
       else:
         self.falseNegData[coordinate].updateInfo(entry)
 
+  def printEntry(self):
+    print self.falseNegData[16075001]
 
   def countThan(self, fun, resultMessage):
     count = 0
@@ -73,5 +77,6 @@ class AnalyseReadsCoveringFN:
         print "T count: ", len(v["cReads"])
         count = count + 1
     print resultMessage, count
+
 
 
