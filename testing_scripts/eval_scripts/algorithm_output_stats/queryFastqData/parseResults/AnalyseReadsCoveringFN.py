@@ -78,5 +78,27 @@ class AnalyseReadsCoveringFN:
         count = count + 1
     print resultMessage, count
 
+  def quantifyLostReads(self, filename):
+    remainingReads = []
+    results = []
+    with open(filename, "r") as fileHandle:
+      remainingReads = [int(line.strip()) for line in fileHandle]
+    for k, v in self.falseNegData.items():
+       result = {}
+       result["remainingHealthy"] = "\n".join(["%s :: %d :: %r" % 
+           (read, idx, (idx in remainingReads)) for (read, idx) in v["hReads"])
+       result["remainingCancer"] = "\n".join(["%s :: %d :: %r" % 
+           (read, idx, (idx in remainingReads)) for (read, idx) in v["cReads"])
 
+       result["cPerc"] = len([idx for (_, idx) in v["cReads"] if 
+         (idx in remainingReads)]) / float(len(v["cReads"]))
 
+       result["hPerc"] = len([idx for (_, idx) in v["hReads"] if 
+         (idx in remainingReads)]) / float(len(v["hReads"]))
+
+       result["tPerc"] = (cPercent * len(v["cReads"]) + 
+                         hPercent * len(v["hReads"])) / 
+                         float(len(v["cReads"]) + len(v["hReads"]))
+       result["coordinate"] = k
+
+       results.append(result)
