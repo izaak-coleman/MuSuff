@@ -1,4 +1,5 @@
 import sys
+import fileinput
 import itertools
 
 class FalseNegativeEntry(dict):
@@ -19,7 +20,7 @@ class FalseNegativeEntry(dict):
     self["snippet"] = entryData[self.SNIPPET_IDX]
     self["coordinate"] = \
     int(entryData[self.COORD_IDX][entryData[self.COORD_IDX].find(":") + 2:])
-    reads = [(read[:read.find("$") + 1], read[read.find("::")+3:])
+    reads = [(read[:read.find("$") + 1], int(read[read.find("::")+3:]))
               for read in entryData[self.READ_IDX:]]
     if tissueType == "H":
       self["hReads"] = reads
@@ -35,13 +36,12 @@ class FalseNegativeEntry(dict):
   def updateInfo(self, entryData):
     entryData = [line.strip() for line in entryData]
     _, _, _, tissueType = self.extractHeaderInfo(entryData[self.HEADER_IDX])
-    reads = [(read[:read.find("$") + 1], read[read.find("::")+3:])
+    reads = [(read[:read.find("$") + 1], int(read[read.find("::")+3:]))
               for read in entryData[self.READ_IDX:]]
     if tissueType == "H":
       self["hReads"] = reads
     else:
       self["cReads"] = reads
-
 
 
 class AnalyseReadsCoveringFN:
@@ -78,17 +78,22 @@ class AnalyseReadsCoveringFN:
         count = count + 1
     print resultMessage, count
 
-  def quantifyLostReads(self, filename):
+  def quantifyLostReads(self):
+    filename = raw_input("Input remaining read id file: ")
+    statFile = filename + ".stat"
+    readFile = filename + ".stat.reads"
     remainingReads = []
     results = []
     with open(filename, "r") as fileHandle:
       remainingReads = [int(line.strip()) for line in fileHandle]
+
+
     for k, v in self.falseNegData.items():
        result = {}
        result["remainingHealthy"] = "\n".join(["%s :: %d :: %r" % 
-           (read, idx, (idx in remainingReads)) for (read, idx) in v["hReads"])
+           (read, idx, (idx in remainingReads)) for (read, idx) in v["hReads"]])
        result["remainingCancer"] = "\n".join(["%s :: %d :: %r" % 
-           (read, idx, (idx in remainingReads)) for (read, idx) in v["cReads"])
+           (read, idx, (idx in remainingReads)) for (read, idx) in v["cReads"]])
 
        result["cCount"] = (len([idx for (_, idx) in v["cReads"] if 
          (idx in remainingReads)]),  len(v["cReads"]))
@@ -100,42 +105,46 @@ class AnalyseReadsCoveringFN:
 
        results.append(result)
 
+
+    def percentage(remain, total):  # quick perc cal
+      try:
+        return (remain / float(total)) * 100
+      except ZeroDivisionError:
+        return 0 
+
+
     # print stats
+    statFileHandle = open(statFile, "w")
     for result in results:
-      print "Cood: %d\n" % (result["coordinate"])
+      statFileHandle.write("Cood: %d\n" % (result["coordinate"]))
 
-      hTotal, hRemain = result["hCount"]
-      hPercLeft = hRemain / float(hTotal)
-      print "Healthy (Total, remain, perc left) : %d, %d, %f" % hTotal, hRemain, hPercLeft
-      print "\n"
+      hRemain, hTotal= result["hCount"]
+      statFileHandle.write("Healthy (Total, remain, perc left) : %d, %d, %.2f\n" % (hTotal,
+          hRemain, percentage(hRemain, hTotal)))
 
-      cTotal, cRemain = result["cCount"]
-      cPercLeft = cRemain / float(cTotal)
-      print "Cancer (Total, remain, perc left) : %d, %d, %f" % cTotal, cRemain, cPercLeft
-      print "\n"
-      print "\n"
+      cRemain, cTotal = result["cCount"]
+      statFileHandle.write("Cancer  (Total, remain, perc left) : %d, %d, %.2f\n" % (cTotal, cRemain,
+          percentage(cRemain, cTotal)))
+      statFileHandle.write("\n")
 
     # print reads
+    readFileHandle = open(readFile, "w")
     for result in results:
-      hTotal, hRemain = result["hCount"]
-      hPercLeft = hRemain / float(hTotal)
-      print "Healthy (Total, remain, perc left) : %d, %d, %f" % hTotal, hRemain, hPercLeft
-      print "\n"
+      readFileHandle.write("Cood: %d\n" % (result["coordinate"]))
 
-      cTotal, cRemain = result["cCount"]
-      cPercLeft = cRemain / float(cTotal)
-      print "Cancer (Total, remain, perc left) : %d, %d, %f" % cTotal, cRemain, cPercLeft
-      print "\n"
-      print "Reads:\n"
-      print result["remainingHealthy"]
-      print result["remainingCancer"]
-      print "\n"
-      print "\n"
-      print "\n"
+      hRemain, hTotal = result["hCount"]
+      readFileHandle.write("Healthy (Total, remain, perc left) : %d, %d, %.2f\n" % (hTotal,
+          hRemain, percentage(hRemain, hTotal)))
 
+      readFileHandle.write(result["remainingHealthy"])
+      readFileHandle.write("\n")
 
+      cRemain, cTotal = result["cCount"]
+      readFileHandle.write("Cancer  (Total, remain, perc left) : %d, %d, %.2f\n" % (cTotal, cRemain,
+          percentage(cRemain, cTotal)))
 
-
-
+      readFileHandle.write(result["remainingCancer"])
+      readFileHandle.write("\n")
+      readFileHandle.write("\n")
 
 

@@ -19,7 +19,8 @@ def main():
   analysis.countThan(lambda x: x > 79, "Count > 79: ")
   print "\n\n"
   print "\n\n"
-  analysis.printEntry()
+
+  analysis.quantifyLostReads()
 
 
 
