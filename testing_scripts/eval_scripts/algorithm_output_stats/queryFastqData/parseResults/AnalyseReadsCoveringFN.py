@@ -85,8 +85,8 @@ class AnalyseReadsCoveringFN:
     remainingReads = []
     results = []
     with open(filename, "r") as fileHandle:
-      remainingReads = [(int(line[1:line.find(",")]), line[-2:-1]) for line in fileHandle]
-
+      remainingReads = [(int(line[1:line.find(",")]), line[-3:-2]) for line in fileHandle]
+      remainingReads = set(remainingReads)
 
     for k, v in self.falseNegData.items():
        result = {}
@@ -95,11 +95,12 @@ class AnalyseReadsCoveringFN:
        result["remainingCancer"] = "\n".join(["%s :: %d :: %r" % 
            (read, idx, ((idx,"T") in remainingReads)) for (read, idx) in v["cReads"]])
 
-       result["cCount"] = (len([idx for (_, idx) in v["cReads"] if 
-         (idx in remainingReads)]),  len(v["cReads"]))
-
        result["hCount"] = (len([idx for (_, idx) in v["hReads"] if 
-         (idx in remainingReads)]),  len(v["hReads"]))
+         ((idx,"H") in remainingReads)]),  len(v["hReads"]))
+
+       result["cCount"] = (len([idx for (_, idx) in v["cReads"] if 
+         ((idx,"T") in remainingReads)]),  len(v["cReads"]))
+
 
        result["coordinate"] = k
 

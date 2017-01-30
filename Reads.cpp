@@ -56,7 +56,7 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
     }
   }
 
-  printRemainingReads("readsAfterLoading.txt");
+  printRemainingReads("/data/ic711/readsAfterLoading.txt");
   cout << "End of ReadsManipulator constructor " << endl;
 }
 
@@ -381,14 +381,13 @@ string ReadsManipulator::outFile() {
   return ofile;
 }
 
-void ReadsManipulator::printRemainingReads(std::string const& filename,
-    bool tissue) {
+void ReadsManipulator::printRemainingReads(std::string const& filename) {
   ofstream fileHandle(filename.c_str());
 
   for (unsigned int i=0; i < HealthyReads.size(); i++) {
     fileHandle << "(" << i << ",H)"  << std::endl;
   }
-  for (unsigned int i=0; i < CancerReads.size(); i++) {
+  for (unsigned int i=0; i < TumourReads.size(); i++) {
     fileHandle << "(" << i << ",T)"  << std::endl;
   }
 } 
