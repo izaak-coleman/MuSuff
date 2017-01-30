@@ -98,5 +98,7 @@ public:
  std::string outFile();
  // returns the name of the final output file
 
+ void printRemainingReads(std::string const& filename);
+
 };
 #endif

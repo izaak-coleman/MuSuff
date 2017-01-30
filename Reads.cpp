@@ -55,6 +55,8 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
       loadFastqRawDataFromFile(datafiles[i].first, TumourReads);
     }
   }
+
+  printRemainingReads("readsAfterLoading.txt");
   cout << "End of ReadsManipulator constructor " << endl;
 }
 
@@ -379,6 +381,19 @@ string ReadsManipulator::outFile() {
   return ofile;
 }
 
+void ReadsManipulator::printRemainingReads(std::string const& filename,
+    bool tissue) {
+  ofstream fileHandle(filename.c_str());
+
+  for (unsigned int i=0; i < HealthyReads.size(); i++) {
+    fileHandle << "(" << i << ",H)"  << std::endl;
+  }
+  for (unsigned int i=0; i < CancerReads.size(); i++) {
+    fileHandle << "(" << i << ",T)"  << std::endl;
+  }
+} 
+
 
 // end of file
+
 
