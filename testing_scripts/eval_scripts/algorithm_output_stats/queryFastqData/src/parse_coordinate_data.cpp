@@ -11,6 +11,7 @@ using namespace std;
 static int const COORDINATE = 0;
 static int const HBASE = 1;
 static int const CBASE = 2;
+static int const FLANKING_DIST = 3;
 
 void printCoordinateData(std::vector<coordinateData> const& coordData) {
   for (coordinateData const& c : coordData) {
@@ -42,11 +43,17 @@ vector<coordinateData> parseCoordinateData(std::string filename) {
     unsigned int coordinate = std::stoi(otherFields[COORDINATE]);
     char hBase = otherFields[HBASE][0];
     char cBase = otherFields[CBASE][0];
+    unsigned int flanking_dist = std::stoi(otherFields[FLANKING_DIST])
 
 
     std::string sequence;
     std::getline(coordDataHandle, sequence);    // advance to sequence line
-    coordinateData coordEntry(header, coordinate, sequence, hBase, cBase);
+    coordinateData coordEntry(header, 
+                              coordinate, 
+                              sequence, 
+                              hBase, 
+                              cBase
+                              flanking_dist);
     coordData.push_back(coordEntry);
 
     std::getline(coordDataHandle, line);        // advance to line break

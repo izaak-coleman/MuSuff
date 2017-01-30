@@ -81,8 +81,26 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
                              TissueType tissue) {
 
   std::vector<snippetData> results;
+  auto rc = [] (char b) { 
+    switch(b){
+      case 'A': return 'T';
+      case 'T': return 'A';
+      case 'C': return 'G';
+      case 'G': return 'C';
+      default:
+        std::cout << "Non watson crick base encountered" << std::endl;
+        exit(1);
+    }
+  };
+
   for (coordinateData const& coord : coords) {
     std::set<unsigned int> readsCoveringCoord;
+    std::string mutated(coord.sequence), non_mutated(coord.sequence);
+    // need to search a mutated version to extract all reads from cancer
+    // data set
+    mutated[coord.flanking_dist] = rc(mutated[coord.flanking_dist]);
+
+
     readsCoveringCoord = findReadsCoveringLocation(reads, gsa, coord.sequence);
     snippetData entry; 
     entry.header = coord.header;

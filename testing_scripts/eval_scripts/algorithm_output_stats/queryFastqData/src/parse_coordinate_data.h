@@ -11,9 +11,11 @@ struct coordinateData {
   std::string sequence;
   char hBase;
   char cBase;
+  unsigned int flanking_dist
   coordinateData(std::string h, unsigned int c, std::string s,
-                 char hb, char cb): 
-    header{h}, coordinate{c}, sequence{s}, hBase(hb), cBase(cb) {}
+                 char hb, char cb, unsigned int fd): 
+    header{h}, coordinate{c}, sequence{s}, hBase(hb), cBase(cb),
+    flanking_dist(fd) {}
 };
 
 std::vector<coordinateData> parseCoordinateData(std::string filename);
