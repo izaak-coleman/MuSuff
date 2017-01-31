@@ -20,8 +20,10 @@ class FalseNegativeEntry(dict):
     self["snippet"] = entryData[self.SNIPPET_IDX]
     self["coordinate"] = \
     int(entryData[self.COORD_IDX][entryData[self.COORD_IDX].find(":") + 2:])
-    reads = [(read[:read.find("$") + 1], int(read[read.find("::")+3:]))
-              for read in entryData[self.READ_IDX:]]
+
+    reads = [tuple(read.split(" :: ")) for read in entryData[self.READ_IDX:]]
+    reads = [(read, int(read_id), found) for (read, read_id, found) in reads]
+
     if tissueType == "H":
       self["hReads"] = reads
     else:
@@ -48,10 +50,10 @@ class AnalyseReadsCoveringFN:
   COORD_IDX = 2
   def __init__(self, fname):
     self.falseNegData = {}
-    self.parseFile(fname)
+    self.parseReadsFile(fname)
 
 
-  def parseFile(self, fname):
+  def parseReadsFile(self, fname):
     fileBuf = [line for line in open(fname, "r")]
     groupedData = [list(x) for a, x in itertools.groupby(fileBuf, lambda x:
         x.startswith("Header"))]
@@ -78,7 +80,25 @@ class AnalyseReadsCoveringFN:
         count = count + 1
     print resultMessage, count
 
+  def computeStats(self, reads, tcond, rcond):
+    results = {}
+
+    def percentage(remain, total):  # quick perc cal
+      try:
+        return (remain / float(total)) * 100
+      except ZeroDivisionError:
+        return 0 
+
+    results["Total"] = len([idx for (_, idx, found) in reads if tcond(found)])
+    results["Rem"]  = len([idx for (_, idx, found) in reads 
+        if rcond(idx) and tcond(found)])
+    results["Perc"] = percentage(results["Rem"], results["Total"])
+    return results
+
+
+
   def quantifyLostReads(self):
+
     filename = raw_input("Input remaining read id file: ")
     statFile = filename + ".stat"
     readFile = filename + ".stat.reads"
@@ -90,28 +110,21 @@ class AnalyseReadsCoveringFN:
 
     for k, v in self.falseNegData.items():
        result = {}
-       result["remainingHealthy"] = "\n".join(["%s :: %d :: %r" % 
-           (read, idx, ((idx,"H") in remainingReads)) for (read, idx) in v["hReads"]])
-       result["remainingCancer"] = "\n".join(["%s :: %d :: %r" % 
-           (read, idx, ((idx,"T") in remainingReads)) for (read, idx) in v["cReads"]])
-
-       result["hCount"] = (len([idx for (_, idx) in v["hReads"] if 
-         ((idx,"H") in remainingReads)]),  len(v["hReads"]))
-
-       result["cCount"] = (len([idx for (_, idx) in v["cReads"] if 
-         ((idx,"T") in remainingReads)]),  len(v["cReads"]))
-
+       hSet = lambda x: (x, "H") in remainingReads
+       cSet = lambda x: (x, "T") in remainingReads
+       nSet = lambda x: x == "N"
+       mSet = lambda x: x == "M"
+       result["HealthyTot"] = computeStats(v["hReads"], lambda x: True, hSet)
+       result["HealthyM"]   = computeStats(v["hReads", mSet, hSet) 
+       result["HealthyN"]   = computeStats(v["hReads", nSet, hset)
+       result;"CancerTot"]  = computeStats(v["cReads"], lambda x: True, cSet)
+       result;"CancerN"]    = computeStats(v["cReads"], nSet, cSet)
+       result;"CancerM"]    = computeStats(v["cReads"], mSet, cSet) 
 
        result["coordinate"] = k
 
        results.append(result)
 
-
-    def percentage(remain, total):  # quick perc cal
-      try:
-        return (remain / float(total)) * 100
-      except ZeroDivisionError:
-        return 0 
 
 
     # print stats

@@ -40,7 +40,7 @@ struct snippetData {
   TissueType tissue; 
   std::vector<std::string> reads;
   std::vector<unsigned int> read_idx;
-  std::vector<bool> mut_type;
+  std::vector<bool> found_on;
 };
 
 void splitFileNamesOnDataType(std::vector<std::string> & hFiles, 

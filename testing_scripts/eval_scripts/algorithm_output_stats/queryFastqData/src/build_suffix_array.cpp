@@ -37,6 +37,8 @@ static const char PHRED_20 = '5';   // lowest high quality phred score
 static const std::string REMOVED_TOKENS = "N"; // remove N from fastq
 static const std::string TERM_CHAR = "$";      // suffix termination character
 
+enum {MUTANT, NON_MUTANT};
+
 // main
 
 //int main(int argc, char **argv) {
@@ -89,7 +91,8 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
     mutated[coord.flanking_dist] = coords.cBase;
 
 
-    readsCoveringCoord = findReadsCoveringLocation(reads, gsa, coord.sequence);
+    // find reads covering the non mutates sequence and load
+    readsCoveringCoord = findReadsCoveringLocation(reads, gsa, non_mutated);
     snippetData entry; 
     entry.header = coord.header;
     entry.snippet = coord.sequence;
@@ -100,6 +103,23 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
     for (unsigned int read_idx : readsCoveringCoord) {
       entry.reads.push_back(reads[read_idx]);
       entry.read_idx.push_back(read_idx);
+      entry.found_on.push_back(NON_MUTANT);
+    }
+
+    // find reads covering the mutated sequence
+    std::set<unsigned int> readsCoveringMutated = 
+      findReadsCoveringLocation(reads, gsa, mutated);
+
+    for (std::set<unsigned int>::iterator it = readsCoveringMutated.begin();
+        it != readsCoveringMutated.end(); it++) {
+      std::pair<std::set<unsigned int>::iterator, bool> newRead = 
+        readsCoveringCoord.insert(*it);
+
+      if (newReads.second == true) {
+        entry.reads.push_back(reads[*it]);
+        entry.read_idx.push_back(*it);
+        entry.found_on.push_back(MUTANT);
+      }
     }
 
     // done filling entry data
@@ -120,8 +140,8 @@ void printSnippetData(std::ostream & out, std::vector<snippetData> const& data) 
     out << "Reads : " << std::endl;
     for (int i = 0; i < entry.reads.size(); i++) {
       out << entry.reads[i] << " :: "
-                << entry.read_idx[i] 
-                << std::endl;
+                << entry.read_idx[i]  << " :: "
+                << ((entry.found_on[i]) ? "N" : "M") << std::endl;
     }
   }
 }
@@ -135,6 +155,7 @@ std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const&
     std::string querySubstr = query.substr(i, 30);
     std::vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa, querySubstr);
     if (result != gsa.end()) {
+
       // input result
       readsCoveringLocation.insert(result->read_idx);
       // search back
