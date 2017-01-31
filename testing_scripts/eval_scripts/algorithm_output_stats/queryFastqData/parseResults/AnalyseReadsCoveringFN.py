@@ -70,6 +70,8 @@ class AnalyseReadsCoveringFN:
   def printEntry(self):
     print self.falseNegData[16075001]
 
+
+
   def countThan(self, fun, resultMessage):
     count = 0
     for (k, v) in self.falseNegData.items():
@@ -79,6 +81,8 @@ class AnalyseReadsCoveringFN:
         print "T count: ", len(v["cReads"])
         count = count + 1
     print resultMessage, count
+
+
 
   def computeStats(self, reads, tcond, rcond):
     results = {}
@@ -107,7 +111,8 @@ class AnalyseReadsCoveringFN:
     with open(filename, "r") as fileHandle:
       remainingReads = [(int(line[1:line.find(",")]), line[-3:-2]) for line in fileHandle]
       remainingReads = set(remainingReads)
-
+    
+    # compute stats
     for k, v in self.falseNegData.items():
        result = {}
        hSet = lambda x: (x, "H") in remainingReads
@@ -117,48 +122,84 @@ class AnalyseReadsCoveringFN:
        result["HealthyTot"] = computeStats(v["hReads"], lambda x: True, hSet)
        result["HealthyM"]   = computeStats(v["hReads", mSet, hSet) 
        result["HealthyN"]   = computeStats(v["hReads", nSet, hset)
-       result;"CancerTot"]  = computeStats(v["cReads"], lambda x: True, cSet)
-       result;"CancerN"]    = computeStats(v["cReads"], nSet, cSet)
-       result;"CancerM"]    = computeStats(v["cReads"], mSet, cSet) 
+       result["CancerTot"]  = computeStats(v["cReads"], lambda x: True, cSet)
+       result["CancerN"]    = computeStats(v["cReads"], nSet, cSet)
+       result["CancerM"]    = computeStats(v["cReads"], mSet, cSet) 
+       result["hBase"] = v["hBase"]
+       result["cBase"] = v["cBase"]
+
+       result["hReads"] = "\n".join(["%s :: %d :: %s" % (read, idx, found)
+        for (read, idx, found) in v["hReads"]])
+
+       result["cReads"] = "\n".join(["%s :: %d :: %s" % (read, idx, found)
+        for (read, idx, found) in c["cReads"]])
 
        result["coordinate"] = k
 
        results.append(result)
 
 
-
     # print stats
     statFileHandle = open(statFile, "w")
     for result in results:
-      statFileHandle.write("Cood: %d\n" % (result["coordinate"]))
+      printStats(statFileHandle, result)
 
-      hRemain, hTotal= result["hCount"]
-      statFileHandle.write("Healthy (Total, remain, perc left) : %d, %d, %.2f\n" % (hTotal,
-          hRemain, percentage(hRemain, hTotal)))
-
-      cRemain, cTotal = result["cCount"]
-      statFileHandle.write("Cancer  (Total, remain, perc left) : %d, %d, %.2f\n" % (cTotal, cRemain,
-          percentage(cRemain, cTotal)))
-      statFileHandle.write("\n")
-
-    # print reads
+    # print stats and reads
     readFileHandle = open(readFile, "w")
     for result in results:
-      readFileHandle.write("Cood: %d\n" % (result["coordinate"]))
-
-      hRemain, hTotal = result["hCount"]
-      readFileHandle.write("Healthy (Total, remain, perc left) : %d, %d, %.2f\n" % (hTotal,
-          hRemain, percentage(hRemain, hTotal)))
-
-      readFileHandle.write(result["remainingHealthy"])
-      readFileHandle.write("\n")
-
-      cRemain, cTotal = result["cCount"]
-      readFileHandle.write("Cancer  (Total, remain, perc left) : %d, %d, %.2f\n" % (cTotal, cRemain,
-          percentage(cRemain, cTotal)))
-
-      readFileHandle.write(result["remainingCancer"])
-      readFileHandle.write("\n")
-      readFileHandle.write("\n")
+      printStats(readFileHandle, result, result["hReads"], result["cReads"])
 
 
+
+  def printStats(self, fileHandle, result, hReads = None, cReads = None):
+    fileHandle.write("Cood: %d, %s -> %s\n" % (result["coordinate"],
+          result["hBase"], result["cBase"]))
+
+    fileHandle.write("Healthy Total Stats (Total, Remain, Perc)\n")
+    fileHandle.write("%d, %d, %.2f\n" % (
+      result["HealthyTot"]["Total"],
+      result["HealthyTot"]["Rem"], 
+      result["HealthyTot"]["Perc"])
+    )
+
+    fileHandle.write("Healhty N Stats (Total, Remain, Perc)\n")
+    fileHandle.write("%d, %d, %2.f\n" % (
+      result["HealthyN"]["Total"], 
+      result["HealthyN"]["Rem"],
+      result["HealthyN"]["Perc"])
+    )
+
+    fileHandle.write("Healthy M Stats (Total, Remain, Perc)\n")
+    fileHandle.write("%d, %d, %.2f\n" % (
+      result["HealthyM"]["Total"], 
+      result["HealthyM"]["Rem"],
+      result["HealthyM"]["Perc"])
+    )
+
+    if hReads != None:
+      fileHandle.write(result["hReads"])
+    
+    fileHandle.write("Cancer Total Stats (Total, Remain, Perc)\n")
+    fileHandle.write("%d, %d, %.2f\n" % (
+      result["CancerTot"]["Total"],
+      result["CancerTot"]["Rem"], 
+      result["CancerTot"]["Perc"])
+    )
+
+    fileHandle.write("Healhty N Stats (Total, Remain, Perc)\n")
+    fileHandle.write("%d, %d, %2.f\n" % (
+      result["CancerN"]["Total"], 
+      result["CancerN"]["Rem"],
+      result["CancerN"]["Perc"])
+    )
+
+    fileHandle.write("Cancer M Stats (Total, Remain, Perc)\n")
+    fileHandle.write("%d, %d, %.2f\n" % (
+      result["CancerM"]["Total"], 
+      result["CancerM"]["Rem"],
+      result["CancerM"]["Perc"])
+    )
+
+    if cReads != None:
+      fileHandle.write(result["cReads"])
+    fileHandle.write("\n\n")
