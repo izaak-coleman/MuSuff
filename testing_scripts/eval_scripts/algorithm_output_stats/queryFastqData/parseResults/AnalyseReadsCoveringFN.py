@@ -120,8 +120,8 @@ class AnalyseReadsCoveringFN:
        nSet = lambda x: x == "N"
        mSet = lambda x: x == "M"
        result["HealthyTot"] = computeStats(v["hReads"], lambda x: True, hSet)
-       result["HealthyM"]   = computeStats(v["hReads", mSet, hSet) 
-       result["HealthyN"]   = computeStats(v["hReads", nSet, hset)
+       result["HealthyM"]   = computeStats(v["hReads"], mSet, hSet) 
+       result["HealthyN"]   = computeStats(v["hReads"], nSet, hset)
        result["CancerTot"]  = computeStats(v["cReads"], lambda x: True, cSet)
        result["CancerN"]    = computeStats(v["cReads"], nSet, cSet)
        result["CancerM"]    = computeStats(v["cReads"], mSet, cSet) 
