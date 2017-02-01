@@ -8,20 +8,14 @@ def f7(seq):
 
 
 def main():
-  hTuples = []
-  cTuples = []
+  tuples = []
   with open(sys.argv[1], 'r') as fsock:
     tuples = [line.strip() for line in fsock]
-    hTuples = [(int(line[1:line.find(',')]), line[-2:-1]) for line in tuples if line[-2:-1] == "H"]
-    cTuples = [(int(line[1:line.find(',')]), line[-2:-1]) for line in tuples if line[-2:-1] == "T"]
-
-
+    tuples = [(int(line[1:line.find(',')]), line[-2:-1]) for line in tuples] 
+    tuples = list(set(tuples))
  
-  hTup = list(set(hTuples))
-  cTup = list(set(cTuples))
-  for t in sorted(hTup, key=itemgetter(0)):
-    print("(%d,%s)" % (t[0], t[1]))
-  for t in sorted(cTup, key=itemgetter(0)):
+  tuples = sorted(tuples, key=itemgetter(1,0))
+  for t in tuples:
     print("(%d,%s)" % (t[0], t[1]))
 
 main()
