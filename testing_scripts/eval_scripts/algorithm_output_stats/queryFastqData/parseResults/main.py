@@ -3,8 +3,8 @@ import sys
 import AnalyseReadsCoveringFN as fn
 
 def main():
-  if len(sys.argv) != 2:
-    print "Usage: <exe> <fn_data>"
+  if len(sys.argv) != 3:
+    print "Usage: <exe> <reads_covering_false_negs> <tuple_point_file>"
     sys.exit()
 
   analysis = fn.AnalyseReadsCoveringFN(sys.argv[1])
@@ -19,8 +19,8 @@ def main():
   analysis.countThan(lambda x: x > 79, "Count > 79: ")
   print "\n\n"
   print "\n\n"
-
-  analysis.quantifyLostReads()
+  
+  analysis.quantifyLostReads(sys.argv[2])
 
 
 

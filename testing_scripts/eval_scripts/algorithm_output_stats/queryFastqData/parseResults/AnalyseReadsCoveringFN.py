@@ -38,8 +38,8 @@ class FalseNegativeEntry(dict):
   def updateInfo(self, entryData):
     entryData = [line.strip() for line in entryData]
     _, _, _, tissueType = self.extractHeaderInfo(entryData[self.HEADER_IDX])
-    reads = [(read[:read.find("$") + 1], int(read[read.find("::")+3:]))
-              for read in entryData[self.READ_IDX:]]
+    reads = [tuple(read.split(" :: ")) for read in entryData[self.READ_IDX:]]
+    reads = [(read, int(read_id), found) for (read, read_id, found) in reads]
     if tissueType == "H":
       self["hReads"] = reads
     else:
@@ -101,9 +101,8 @@ class AnalyseReadsCoveringFN:
 
 
 
-  def quantifyLostReads(self):
+  def quantifyLostReads(self, filename):
 
-    filename = raw_input("Input remaining read id file: ")
     statFile = filename + ".stat"
     readFile = filename + ".stat.reads"
     remainingReads = []
@@ -119,12 +118,12 @@ class AnalyseReadsCoveringFN:
        cSet = lambda x: (x, "T") in remainingReads
        nSet = lambda x: x == "N"
        mSet = lambda x: x == "M"
-       result["HealthyTot"] = computeStats(v["hReads"], lambda x: True, hSet)
-       result["HealthyM"]   = computeStats(v["hReads"], mSet, hSet) 
-       result["HealthyN"]   = computeStats(v["hReads"], nSet, hset)
-       result["CancerTot"]  = computeStats(v["cReads"], lambda x: True, cSet)
-       result["CancerN"]    = computeStats(v["cReads"], nSet, cSet)
-       result["CancerM"]    = computeStats(v["cReads"], mSet, cSet) 
+       result["HealthyTot"] = self.computeStats(v["hReads"], lambda x: True, hSet)
+       result["HealthyM"]   = self.computeStats(v["hReads"], mSet, hSet) 
+       result["HealthyN"]   = self.computeStats(v["hReads"], nSet, hSet)
+       result["CancerTot"]  = self.computeStats(v["cReads"], lambda x: True, cSet)
+       result["CancerN"]    = self.computeStats(v["cReads"], nSet, cSet)
+       result["CancerM"]    = self.computeStats(v["cReads"], mSet, cSet) 
        result["hBase"] = v["hBase"]
        result["cBase"] = v["cBase"]
 
@@ -132,7 +131,7 @@ class AnalyseReadsCoveringFN:
         for (read, idx, found) in v["hReads"]])
 
        result["cReads"] = "\n".join(["%s :: %d :: %s" % (read, idx, found)
-        for (read, idx, found) in c["cReads"]])
+        for (read, idx, found) in v["cReads"]])
 
        result["coordinate"] = k
 
@@ -142,16 +141,17 @@ class AnalyseReadsCoveringFN:
     # print stats
     statFileHandle = open(statFile, "w")
     for result in results:
-      printStats(statFileHandle, result)
+      self.printStats(statFileHandle, result)
 
     # print stats and reads
     readFileHandle = open(readFile, "w")
     for result in results:
-      printStats(readFileHandle, result, result["hReads"], result["cReads"])
+      self.printStats(readFileHandle, result, result["hReads"], result["cReads"])
 
 
 
-  def printStats(self, fileHandle, result, hReads = None, cReads = None):
+  def printStats(self, fileHandle, result, hReads = None, cReads = None, nmData
+      = False):
     fileHandle.write("Cood: %d, %s -> %s\n" % (result["coordinate"],
           result["hBase"], result["cBase"]))
 
@@ -162,19 +162,21 @@ class AnalyseReadsCoveringFN:
       result["HealthyTot"]["Perc"])
     )
 
-    fileHandle.write("Healhty N Stats (Total, Remain, Perc)\n")
-    fileHandle.write("%d, %d, %2.f\n" % (
-      result["HealthyN"]["Total"], 
-      result["HealthyN"]["Rem"],
-      result["HealthyN"]["Perc"])
-    )
+    # switch to print the NM data
+    if nmData:
+      fileHandle.write("Healhty N Stats (Total, Remain, Perc)\n")
+      fileHandle.write("%d, %d, %2.f\n" % (
+        result["HealthyN"]["Total"], 
+        result["HealthyN"]["Rem"],
+        result["HealthyN"]["Perc"])
+      )
 
-    fileHandle.write("Healthy M Stats (Total, Remain, Perc)\n")
-    fileHandle.write("%d, %d, %.2f\n" % (
-      result["HealthyM"]["Total"], 
-      result["HealthyM"]["Rem"],
-      result["HealthyM"]["Perc"])
-    )
+      fileHandle.write("Healthy M Stats (Total, Remain, Perc)\n")
+      fileHandle.write("%d, %d, %.2f\n" % (
+        result["HealthyM"]["Total"], 
+        result["HealthyM"]["Rem"],
+        result["HealthyM"]["Perc"])
+      )
 
     if hReads != None:
       fileHandle.write(result["hReads"])
@@ -186,19 +188,21 @@ class AnalyseReadsCoveringFN:
       result["CancerTot"]["Perc"])
     )
 
-    fileHandle.write("Healhty N Stats (Total, Remain, Perc)\n")
-    fileHandle.write("%d, %d, %2.f\n" % (
-      result["CancerN"]["Total"], 
-      result["CancerN"]["Rem"],
-      result["CancerN"]["Perc"])
-    )
+    # switch to print the NM data
+    if nmData:
+      fileHandle.write("Healhty N Stats (Total, Remain, Perc)\n")
+      fileHandle.write("%d, %d, %2.f\n" % (
+        result["CancerN"]["Total"], 
+        result["CancerN"]["Rem"],
+        result["CancerN"]["Perc"])
+      )
 
-    fileHandle.write("Cancer M Stats (Total, Remain, Perc)\n")
-    fileHandle.write("%d, %d, %.2f\n" % (
-      result["CancerM"]["Total"], 
-      result["CancerM"]["Rem"],
-      result["CancerM"]["Perc"])
-    )
+      fileHandle.write("Cancer M Stats (Total, Remain, Perc)\n")
+      fileHandle.write("%d, %d, %.2f\n" % (
+        result["CancerM"]["Total"], 
+        result["CancerM"]["Rem"],
+        result["CancerM"]["Perc"])
+      )
 
     if cReads != None:
       fileHandle.write(result["cReads"])
