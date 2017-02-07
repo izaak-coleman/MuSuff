@@ -43,7 +43,7 @@ vector<coordinateData> parseCoordinateData(std::string filename) {
     unsigned int coordinate = std::stoi(otherFields[COORDINATE]);
     char hBase = otherFields[HBASE][0];
     char cBase = otherFields[CBASE][0];
-    unsigned int flanking_dist = std::stoi(otherFields[FLANKING_DIST])
+    unsigned int flanking_dist = std::stoi(otherFields[FLANKING_DIST]);
 
 
     std::string sequence;
@@ -52,7 +52,7 @@ vector<coordinateData> parseCoordinateData(std::string filename) {
                               coordinate, 
                               sequence, 
                               hBase, 
-                              cBase
+                              cBase,
                               flanking_dist);
     coordData.push_back(coordEntry);
 

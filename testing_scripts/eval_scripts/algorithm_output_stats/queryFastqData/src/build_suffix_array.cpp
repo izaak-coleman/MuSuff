@@ -88,7 +88,7 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
     std::string mutated(coord.sequence), non_mutated(coord.sequence);
     // need to search a mutated version to extract all reads from cancer
     // data set
-    mutated[coord.flanking_dist] = coords.cBase;
+    mutated[coord.flanking_dist] = coord.cBase;
 
 
     // find reads covering the non mutates sequence and load
@@ -100,6 +100,7 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
     entry.cancer = coord.cBase;
     entry.mutationLocation  = coord.coordinate;
     entry.tissue = tissue;
+    entry.fd = coord.flanking_dist;
     for (unsigned int read_idx : readsCoveringCoord) {
       entry.reads.push_back(reads[read_idx]);
       entry.read_idx.push_back(read_idx);
@@ -115,7 +116,7 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
       std::pair<std::set<unsigned int>::iterator, bool> newRead = 
         readsCoveringCoord.insert(*it);
 
-      if (newReads.second == true) {
+      if (newRead.second == true) {
         entry.reads.push_back(reads[*it]);
         entry.read_idx.push_back(*it);
         entry.found_on.push_back(MUTANT);

@@ -37,6 +37,7 @@ struct snippetData {
   unsigned int mutationLocation;
   char healthy;
   char cancer;
+  unsigned int fd;
   TissueType tissue; 
   std::vector<std::string> reads;
   std::vector<unsigned int> read_idx;
