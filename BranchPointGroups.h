@@ -176,7 +176,7 @@ private:
   // Output: BreakPointBlocks with loaded blocks
   // Details: Forms the groups of contiguous reads with LCP >= 30 
   // using seed and extension 
-  int computeLCP(read_tag a, read_tag b);
+  int computeLCP(read_tag const& a, read_tag const& b);
   char revCompCharacter(char ch, bool rc);
   
 
@@ -210,6 +210,13 @@ public:
 
   std::string addGaps(int ngaps);
   // Function returns a string of lenth ngaps, where gaps are '-'
+
+
+  void outputExtractedCancerReads(std::string const& filename);
+  // Outputs (idx,type) tuples from CancerExtraction
+
+  void outputFromBPB(std::string const& filename);
+  std::string readTagToString(read_tag const& tag);
 };
 
 

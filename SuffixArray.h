@@ -127,6 +127,9 @@ public:
   // by returning the start position, we identify which 
   // read a suffix is from, and we can calculte the suffixes offset
 
+  void printReadsInGSA(std::string const& filename);
+  // Outputs (idx,type) tuples
+
 };
 
 

@@ -42,10 +42,22 @@ SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
   cout << "Starting parallelGenRadixSA:" << endl;
 
   parallelGenRadixSA(min_suffix);
+  printReadsInGSA("/data/ic711/point2.txt");
 }
 
 
 SuffixArray::~SuffixArray() {
+}
+
+void SuffixArray::printReadsInGSA(std::string const& filename) {
+  ofstream ofHandle(filename.c_str());
+
+  for (Suffix_t const& s : SA) {
+    ofHandle << "(" << s.read_id << ","
+             << ((s.type == HEALTHY) ? "H" : "T") 
+             << ")" << std::endl;
+  }
+  ofHandle.close();
 }
 
 // PARALLELRADIXSACONSTRUCTION FUNCS

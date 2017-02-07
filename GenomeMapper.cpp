@@ -79,7 +79,7 @@ void GenomeMapper::buildConsensusPairs() {
   // and then add starting gaps to align sequence pair
 
   consensus_pairs.reserve(BPG->getSize()); // make room
-  int continued  = 0;
+  int continued{0};
   for (int i=0; i < BPG->getSize(); ++i) {
 
     vector< vector<int> > tumour_base_frequency, healthy_base_frequency;

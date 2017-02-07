@@ -56,7 +56,7 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
     }
   }
 
-  printRemainingReads("/data/ic711/readsAfterLoading.txt");
+  printRemainingReads("/data/ic711/point1.txt");
   cout << "End of ReadsManipulator constructor " << endl;
 }
 
@@ -390,6 +390,7 @@ void ReadsManipulator::printRemainingReads(std::string const& filename) {
   for (unsigned int i=0; i < TumourReads.size(); i++) {
     fileHandle << "(" << i << ",T)"  << std::endl;
   }
+  fileHandle.close();
 } 
 
 

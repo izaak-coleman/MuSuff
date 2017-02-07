@@ -1,6 +1,7 @@
 // BranchPointGroups.cpp
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <cstring>
 #include <set>
@@ -38,16 +39,46 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   // Generate branchpoint groups
   cout << "Extracting cancer-specific reads..." << endl;
   extractCancerSpecificReads(); 
+  outputExtractedCancerReads("/data/ic711/point3.txt");
   cout << "No of extracted groups: " << CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
   cout << "Generating breakpoint blocks..." << endl;
 //  makeBreakPointBlocks();
   seedBreakPointBlocks();
+  outputFromBPB("/data/ic711/point4.txt");
 
   cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
   cout << "Adding non-mutated alleles to blocks." << endl;
   extractNonMutatedAlleles();
+  outputFromBPB("/data/ic711/point5.txt");
+}
+
+
+void BranchPointGroups::outputExtractedCancerReads(std::string const& filename) {
+  ofstream ofHandle(filename.c_str());
+  for (unsigned int read_idx : CancerExtraction) {
+    ofHandle << "(" << read_idx << ",T)" << std::endl;
+  }
+  ofHandle.close();
+}
+
+void BranchPointGroups::outputFromBPB(std::string const& filename) {
+  ofstream ofHandle(filename.c_str());
+  for (bp_block const& b : BreakPointBlocks) {
+    for (read_tag const& tag : b.block) {
+      ofHandle << "(" << tag.read_id << ","
+               << ((tag.tissue_type) ? "H" : "T")
+               << ")" << std::endl;
+
+      if (tag.read_id == 11 && tag.tissue_type) {
+        std::cout << "Culprit block id: " << b.id << std::endl;
+        std::cout << "Read tissue type : " << tag.tissue_type << std::endl;
+        std::cout << "Read 11: " << reads->getReadByIndex(tag.read_id, tag.tissue_type) << std::endl;
+      }
+    }
+  }
+  ofHandle.close();
 }
 
 
@@ -213,59 +244,81 @@ void BranchPointGroups::seedBreakPointBlocks() {
     tag.tissue_type = TUMOUR;
     gsa.push_back(tag);       // gsa should be built
   } 
-  //for (read_tag tag : gsa) {
-  //  string read =  reads->getReadByIndex(tag.read_id,
-  //      TUMOUR);
-  //  if (tag.orientation == LEFT) {
-  //    read = reverseComplementString(read) + "$";
-  //  }
-  //  string suffix = read.substr(tag.offset);
-  //  cout << suffix << endl;
-  //}
 
   cout << "Extracting groups from cancer specific gsa" << endl;
   delete [] radixSA;
+
+  // PRINT gsa
+  //for (read_tag const& tag : gsa) {
+  //  std::cout << readTagToString(tag) 
+  //            << ((tag.orientation) ? " -- R" : " -- L") << endl;
+  //}
+
   extractGroups(gsa);
 }
-int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
-  string::const_iterator a_it, b_it, a_end, b_end;
-  const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
-  const string &bstr = reads->getReadByIndex(b.read_id, TUMOUR);
-  int a_inc, b_inc;
-  bool a_rc = false, b_rc = false;
 
-  if (a.orientation == RIGHT) {
-    a_it = astr.begin() + a.offset;
-    a_end = astr.end();
-    a_inc = 1;
+string BranchPointGroups::readTagToString(read_tag const& tag) {
+  string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
+  int offset = tag.offset;
+  string dollar = "";
+  if (tag.orientation == LEFT) {
+    offset = read.size() - (tag.offset + reads->getMinSuffixSize() + 1);
+    read = reverseComplementString(read);
+    dollar = "$";
   }
-  else { 
-    a_it = astr.begin() + a.offset + reads->getMinSuffixSize() - 1;
-    a_end = astr.begin();
-    a_inc = -1;
-    a_rc = true;
-  }
+  return read.substr(offset) + dollar;
+}
 
-  if (b.orientation == RIGHT) {
-    b_it = bstr.begin() + b.offset;
-    b_end = bstr.end();
-    b_inc = 1;
-  }
-  else {
-    b_it = bstr.begin() + b.offset + reads->getMinSuffixSize() - 1;
-    b_end = bstr.begin();
-    b_inc = -1;
-    b_rc = true;
-  }
-
+int BranchPointGroups::computeLCP(read_tag const& a, read_tag const& b) {
+  string a_str = readTagToString(a);
+  string b_str = readTagToString(b);
   int lcp = 0;
-  for(; revCompCharacter(*a_it, a_rc) == revCompCharacter(*b_it, b_rc) &&
-        b_it != b_end &&
-        a_it != a_end; 
-        a_it += a_inc, b_it += b_inc, lcp++);
-
+  while (lcp < a_str.length() &&
+         lcp < b_str.length() &&
+         a_str[lcp] == b_str[lcp]) lcp++;
   return lcp;
 }
+
+//int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
+//  string::const_iterator a_it, b_it, a_end, b_end;
+//  const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
+//  const string &bstr = reads->getReadByIndex(b.read_id, TUMOUR);
+//
+//  int a_inc, b_inc;
+//  bool a_rc = false, b_rc = false;
+//
+//  if (a.orientation == RIGHT) {
+//    a_it = astr.begin() + a.offset;
+//    a_end = astr.end();
+//    a_inc = 1;
+//  }
+//  else { 
+//    a_it = astr.begin() + a.offset + reads->getMinSuffixSize() - 1;
+//    a_end = astr.begin();
+//    a_inc = -1;
+//    a_rc = true;
+//
+//  }
+//
+//  if (b.orientation == RIGHT) {
+//    b_it = bstr.begin() + b.offset;
+//    b_end = bstr.end();
+//    b_inc = 1;
+//  }
+//  else {
+//    b_it = bstr.begin() + b.offset + reads->getMinSuffixSize() - 1;
+//    b_end = bstr.begin();
+//    b_inc = -1;
+//    b_rc = true;
+//  }
+//
+//  for(; revCompCharacter(*a_it, a_rc) == revCompCharacter(*b_it, b_rc) &&
+//        b_it != b_end &&
+//        a_it != a_end; 
+//        a_it += a_inc, b_it += b_inc, lcp++);
+//
+//}
+
 
 //int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
 //  string::const_iterator a_it, b_it, a_end, b_end;
@@ -319,40 +372,12 @@ char BranchPointGroups::revCompCharacter(char ch, bool rc) {
   }
 }
 
-//int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
-//
-//  string read_a, read_b;
-//  // translate strings if necassary
-//  if (a.orientation == LEFT) {
-//    read_a = reverseComplementString(
-//        reads->getReadByIndex(a.read_id, TUMOUR)) + "$";
-//  } else {
-//    read_a = reads->getReadByIndex(a.read_id, TUMOUR);
-//  }
-//
-//  if (b.orientation == LEFT) {
-//    read_b = reverseComplementString(
-//        reads->getReadByIndex(b.read_id, TUMOUR)) + "$";
-//  } else {
-//    read_b = reads->getReadByIndex(b.read_id, TUMOUR);
-//  }
-//
-//  // need to correct for reverse orientation
-//  string::iterator a_it = read_a.begin() + a.offset;
-//  string::iterator b_it = read_b.begin()  + b.offset;
-//  unsigned int lcp = 0;
-//  for (;*a_it == *b_it 
-//        && a_it != read_a.end() 
-//        && b_it !=  read_b.end();
-//        a_it++, b_it++, lcp++);
-//  return lcp;
-//}
 
 void BranchPointGroups::extractGroups(vector<read_tag> &gsa) {
 
-  unsigned int seed_index(0);
-  unsigned int extension(0);
-  unsigned int block_id = 0;
+  unsigned int seed_index{0};
+  unsigned int extension{0};
+  unsigned int block_id{0};
   while (seed_index < gsa.size()-1) {
    
     // seed
@@ -382,6 +407,14 @@ void BranchPointGroups::extractGroups(vector<read_tag> &gsa) {
       seed_index++;
     }
   }
+  
+  // PRINT groups
+  //for (bp_block const& b : BreakPointBlocks) {
+  //  cout << "Block id: " << b.id << endl;
+  //  for (read_tag const& tag : b.block) {
+  //    cout << readTagToString(tag) << endl;
+  //  }
+  //}
 }
 
 void BranchPointGroups::makeBreakPointBlocks(){
@@ -584,8 +617,7 @@ string BranchPointGroups::reverseComplementString(string s){
 //}
 
 void BranchPointGroups::extractNonMutatedAlleles() {
-  for
-    (bp_block &block : BreakPointBlocks) {
+  for (bp_block &block : BreakPointBlocks) {
     read_tag tag = *block.block.begin();  // copy first element
     string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
     read = read.substr(tag.offset, reads->getMinSuffixSize());
@@ -597,9 +629,15 @@ void BranchPointGroups::extractNonMutatedAlleles() {
     if (fwd_index != -1) {
       extendBlock(fwd_index, block.block, tag.orientation);
     }
+    else {
+      std::cout << "Search failed" << std::endl;
+    }
 
     if (rev_index != -1) {
       extendBlock(rev_index, block.block, !tag.orientation);
+    }
+    else {
+      std::cout << "Search failed" << std::endl;
     }
   }
 }
@@ -608,6 +646,8 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     int &cns_offset, bool tissue_type, unsigned int &pair_id,
     vector< vector<int> > &align_counter) {
   // all seqs get converted to RIGHT orientation, before consensus
+  std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
+    std::endl;
 
   if (BreakPointBlocks[block_idx].size() > COVERAGE_UPPER_THRESHOLD) {
     return "\0";
@@ -805,7 +845,7 @@ void BranchPointGroups::extendBlock(int seed_index,
 
   int left_of_seed = 0, right_of_seed = 0;
 
-  if (seed_index != 0 ){
+  if (seed_index != 0){
     left_of_seed = ::computeLCP(SA->getElem(seed_index),
                      SA->getElem(seed_index-1), *reads);
   }
@@ -854,10 +894,7 @@ void BranchPointGroups::getSuffixesFromLeft(int seed_index,
       next_read.tissue_type = SWITCHED;
     }
 
-
-
     // insert tag into block
-
     pair<std::set<read_tag, read_tag_compare>::iterator, bool> correct_ins = block.insert(next_read);
     left_arrow--;
   }
@@ -889,8 +926,6 @@ void BranchPointGroups::getSuffixesFromRight(int seed_index,
       next_read.tissue_type = SWITCHED;
     }
 
-
-
     block.insert(next_read);
     right_arrow++;
   }
@@ -904,7 +939,7 @@ int BranchPointGroups::lcp(string l, string r, unsigned int mlr) {
 }
 
 int BranchPointGroups::minVal(int a, int b) {
-  if(a > b){
+  if (a > b) {
     return b;
   }
   return a;
