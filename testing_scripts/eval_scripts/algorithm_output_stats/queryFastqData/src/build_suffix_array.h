@@ -20,10 +20,20 @@ struct fastq_t {
   std::string id, seq, qual;
 };
 
+struct compareGSATuple {
+  bool operator() (gsaTuple const& a, gsaTuple const& b) {
+    return a.read_idx < b.read_idx;
+  }
+};
+
+
 struct gsaTuple {
   unsigned int read_idx;
   unsigned int offset;
-  gsaTuple(unsigned int r, unsigned int o):read_idx(r), offset(o) {}
+  int relative_to;
+  gsaTuple(unsigned int r, unsigned int o):read_idx(r), offset(o) {
+    relative_to = -1;
+  }
 
   friend std::ostream & operator<<(std::ostream & cout, gsaTuple const& tup) {
     cout << "(" << tup.read_idx << "," << tup.offset << ")" << std::endl;
@@ -53,7 +63,7 @@ void qualityProcessRawData(std::vector<fastq_t> *r_data,
                            std::vector<std::string> *p_data,
                            int from,int to, int tid);
 std::vector<gsaTuple> buildGSA(std::vector<std::string> const& fileNames,
-    std::vector<std::string> & reads);
+    std::vector<std::string> & reads, std::string const& nameOfContainer);
 
 std::pair<unsigned int, unsigned int> binarySearch(
                   std::vector<std::pair<unsigned int, unsigned int> > const& BSA, 
@@ -78,4 +88,10 @@ extractReadsCoveringSnippets(std::vector<coordinateData>
     TissueType tissue);
 
 void printSnippetData(std::ostream & out, std::vector<snippetData> const& data);
+
+void printReadsAndId(int from, int to, int step, std::vector<std::string> const&
+    reads, std::string const& nameOfContainer);
+
+std::string rc(std::string const& s);
+// returns the reverse complement of a string
 #endif

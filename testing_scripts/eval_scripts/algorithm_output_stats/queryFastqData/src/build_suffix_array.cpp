@@ -6,6 +6,7 @@
 #include <mutex>
 #include <thread>
 #include <algorithm>
+#include <cstdlib>
 
 
 // reading tar.gz
@@ -75,7 +76,18 @@ enum {MUTANT, NON_MUTANT};
 //  }
 //}
 
-
+std::string rc(std::string const& s) {
+  std::string rc_s = "";
+  for(int i = s.size()-1; i >=0; i--) {
+    switch (s[i]) {
+      case 'A': rc_s.push_back('T'); break;
+      case 'T': rc_s.push_back('A'); break;
+      case 'C': rc_s.push_back('G'); break;
+      case 'G': rc_s.push_back('C'); break;
+    }
+  }
+  return rc_s;
+}
 std::vector<snippetData>
 extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
                              std::vector<std::string> const& reads,
@@ -83,38 +95,47 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
                              TissueType tissue) {
 
   std::vector<snippetData> results;
+
   for (coordinateData const& coord : coords) {
-    std::set<unsigned int> readsCoveringCoord;
-    std::string mutated(coord.sequence), non_mutated(coord.sequence);
-    // need to search a mutated version to extract all reads from cancer
-    // data set
-    mutated[coord.flanking_dist] = coord.cBase;
+    // set up snippets
+    std::set<unsigned int> fwdNonMutated, revNonMutated, fwdMutated, revMutated;
+    std::string fwd_non_mut(coord.sequence), fwd_mut(coord.sequence);
+    fwd_mut[coord.flanking_dist] = coord.cBase;
+    std::string rev_non_mut(rc(fwd_non_mut)), rev_mut(rc(fwd_mut));
 
+ 
+    // search for reads 
+    fwdNonMutated = findReadsCoveringLocation(reads, gsa, fwd_non_mut);
+    fwdMutated    = findReadsCoveringLocation(reads, gsa, fwd_mut);
+    revNonMutated = findReadsCoveringLocation(reads, gsa, rev_non_mut);
+    revMutated    = findReadsCoveringLocation(reads, gsa, rev_mut);
 
-    // find reads covering the non mutates sequence and load
-    readsCoveringCoord = findReadsCoveringLocation(reads, gsa, non_mutated);
-    snippetData entry; 
-    entry.header = coord.header;
-    entry.snippet = coord.sequence;
-    entry.healthy = coord.hBase;
-    entry.cancer = coord.cBase;
-    entry.mutationLocation  = coord.coordinate;
-    entry.tissue = tissue;
+    // load data int snippetCoord
+    snippetData entry;
+    entry.header = coord.header; entry.snippet = coord.sequence;
+    entry.healthy = coord.hBase; entry.cancer = coord.cBase;
+    entry.mutationLocation = coord.coordinate; entry.tissue = tissue;
     entry.fd = coord.flanking_dist;
-    for (unsigned int read_idx : readsCoveringCoord) {
+
+    // Merge forward and reverse sets, of the non/mutated searches
+    fwdNonMutated.insert(revNonMutated.begin(), revNonMutated.end());
+    revNonMutated.clear();
+    fwdMutated.insert(revMutated.begin(), revMutated.end());
+    revMutated.clear();
+
+    // copy non mutated over to snippetCoord
+    for (unsigned int read_idx : fwdNonMutated) {
       entry.reads.push_back(reads[read_idx]);
       entry.read_idx.push_back(read_idx);
       entry.found_on.push_back(NON_MUTANT);
     }
 
-    // find reads covering the mutated sequence
-    std::set<unsigned int> readsCoveringMutated = 
-      findReadsCoveringLocation(reads, gsa, mutated);
-
-    for (std::set<unsigned int>::iterator it = readsCoveringMutated.begin();
-        it != readsCoveringMutated.end(); it++) {
+    // only copy over mutated reads uniquely found on the mutated read search.
+    // Mark as MUTANT if added 
+    for (std::set<unsigned int>::iterator it = fwdMutated.begin();
+        it != fwdMutated.end(); it++) {
       std::pair<std::set<unsigned int>::iterator, bool> newRead = 
-        readsCoveringCoord.insert(*it);
+        fwdNonMutated.insert(*it);
 
       if (newRead.second == true) {
         entry.reads.push_back(reads[*it]);
@@ -148,6 +169,60 @@ void printSnippetData(std::ostream & out, std::vector<snippetData> const& data) 
 }
 
 
+std::set<gsaTuple> findReadsCoveringLocation(std::vector<std::string> const&
+    reads, std::vector<gsaTuple> const& gsa, std::string const& query) {
+  std::set<gsaTuple, compareGSATuple> readsCoveringLocation;
+
+  for(int i=0; i < query.size - 30; i++) {
+    std::string querySubstr = query.substr(i, 30);
+    std::vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa,
+        querySubstr);
+
+    if (result != gsa.end()) {
+
+      readsCoveringLocation.insert(*result); // input the hit element
+
+      // search back
+      std::vector<gsaTuple>::const_iterator leftArrow = result-1;
+      if (leftArrow >= gsa.begin()) {
+        while (
+            lcp(reads[leftArrow->read_idx]
+              .substr(leftArrow->offset), querySubstr)
+              >= MIN_SUFFIX_SIZE) {
+
+          // try and insert into set
+          std::pair<std::set<gsaTuple>::iterator, bool> success = 
+          readsCoveringLocation.insert(*leftArrow);
+          // if inserted, set relative_to
+          if (success.second == true) {
+            sucess.first->relative_to = i;
+          }
+          leftArrow--;
+          if (leftArrow < gsa.begin()) break;
+        }
+      }
+      // search forward
+      std::vector<gsaTuple>::const_iterator rightArrow = result + 1;
+      if (rightArrow < gsa.end()) {
+        while (lcp(reads[rightArrow->read_idx]
+              .substr(rightArrow->offset), querySubstr)
+              >= MIN_SUFFIX_SIZE) {
+          
+          // try and insert into set
+          std::pair<std::set<gsaTuple>::iterator, bool> success = 
+          readsCoveringLocation.insert(*rightArrow);
+          // if inserted, set relative_to
+          if (success.second == true) {
+            success.first->relative_to = i;
+          }
+          rightArrow++;
+          if (rightArrow >= gsa.end()) break;
+        }
+      }
+    }
+  }
+  return readsCoveringLocation;
+}
 std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const& reads,
     std::vector<gsaTuple> const& gsa, std::string const& query) {
   std::set<unsigned int> readsCoveringLocation;
@@ -212,14 +287,30 @@ int lcp(std::string const& a, std::string const& b) {
   return lcp;
 }
 
+void printReadsAndId(int from, int to, int step, std::vector<std::string> const&
+    reads, std::string const& nameOfContainer) {
+  ofstream ofile("/data/ic711/idEquivQueryFastq.txt", std::ios_base::app);
+
+  ofile << nameOfContainer << std::endl;
+  if(from < 0 || to > reads.size()) {
+    std::cout << "Out of range" << std::endl;
+    exit(1);
+  }
+  for(; from < to; from += step) {
+    ofile << reads[from] << " : " << from << std::endl;
+  }
+  ofile.close();
+}
+
 
 std::vector<gsaTuple> buildGSA(std::vector<std::string> const& fileNames,
-    std::vector<std::string> & reads) {
+    std::vector<std::string> & reads, std::string const& nameOfContainer) {
 
   // extract reads from tar.gz file
   for (std::string const& filename  : fileNames) {
     loadFastq(filename, reads);
   }
+
   std::cout << "Loaded fastq data." << std::endl;
 
   // construct bsa

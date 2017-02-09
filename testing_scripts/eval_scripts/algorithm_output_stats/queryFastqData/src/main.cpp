@@ -27,10 +27,10 @@ int main(int argc, char **argv) {
   std::vector<std::string> cancerReads, healthyReads;
   std::vector<gsaTuple> healthyGSA, cancerGSA;
   if (!healthyFileNames.empty()) {
-    healthyGSA = buildGSA(healthyFileNames, healthyReads);
+    healthyGSA = buildGSA(healthyFileNames, healthyReads, "Healthy Reads");
   }
   if (!cancerFileNames.empty()) {
-    cancerGSA = buildGSA(cancerFileNames, cancerReads);
+    cancerGSA = buildGSA(cancerFileNames, cancerReads, "Cancer Reads");
   }
 
   // extract the cancer and healthy reads covering each coordinate
