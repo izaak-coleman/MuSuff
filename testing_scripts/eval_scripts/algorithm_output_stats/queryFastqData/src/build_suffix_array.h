@@ -14,30 +14,41 @@
 #include "parse_coordinate_data.h"
 
 enum class TissueType {tumour, healthy};
+enum class Orientation {fwd, rev};
+enum class Covers{mut, nonMut};
 
 
 struct fastq_t {  
   std::string id, seq, qual;
 };
 
-struct compareGSATuple {
-  bool operator() (gsaTuple const& a, gsaTuple const& b) {
-    return a.read_idx < b.read_idx;
-  }
-};
 
 
 struct gsaTuple {
   unsigned int read_idx;
   unsigned int offset;
+  Orientation orientation;
+  Covers covers;
   int relative_to;
-  gsaTuple(unsigned int r, unsigned int o):read_idx(r), offset(o) {
+
+  gsaTuple(unsigned int idx, unsigned int off):
+  read_idx(idx), offset(off) {
     relative_to = -1;
+  }
+  gsaTuple(unsigned int idx, unsigned int off, Orientation ori, Covers cov, 
+      int rel)
+    :read_idx(idx), offset(off), orientation(ori), covers(cov), relative_to(rel) {
   }
 
   friend std::ostream & operator<<(std::ostream & cout, gsaTuple const& tup) {
     cout << "(" << tup.read_idx << "," << tup.offset << ")" << std::endl;
     return cout;
+  }
+};
+
+struct compareGSATuple {
+  bool operator() (gsaTuple const& a, gsaTuple const& b) {
+    return a.read_idx < b.read_idx;
   }
 };
 
@@ -49,9 +60,11 @@ struct snippetData {
   char cancer;
   unsigned int fd;
   TissueType tissue; 
-  std::vector<std::string> reads;
-  std::vector<unsigned int> read_idx;
-  std::vector<bool> found_on;
+
+  std::set<gsaTuple, compareGSATuple> coveringReads;
+  //std::vector<std::string> reads;
+  //std::vector<unsigned int> read_idx;
+  //std::vector<bool> found_on;
 };
 
 void splitFileNamesOnDataType(std::vector<std::string> & hFiles, 

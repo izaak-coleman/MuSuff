@@ -23,6 +23,8 @@
 #include "build_suffix_array.h" 
 std::mutex quality_processing_lock;
 
+using namespace std;
+
 KSEQ_INIT(gzFile, gzread);
 static const int NUM_ARGS = 4;
 static const int HEADER_FILE_IDX = 1;
@@ -35,8 +37,8 @@ static const int MIN_SUFFIX_SIZE = 30;  // remove user definable variable
 static const double QUALITY_THRESH = 0.1; // 10% 
 static const char PHRED_20 = '5';   // lowest high quality phred score
 
-static const std::string REMOVED_TOKENS = "N"; // remove N from fastq
-static const std::string TERM_CHAR = "$";      // suffix termination character
+static const string REMOVED_TOKENS = "N"; // remove N from fastq
+static const string TERM_CHAR = "$";      // suffix termination character
 
 enum {MUTANT, NON_MUTANT};
 
@@ -44,15 +46,15 @@ enum {MUTANT, NON_MUTANT};
 
 //int main(int argc, char **argv) {
 //  if (argc != 2) {
-//    std::cout << "Usage: <exe> <datafilelist>" << std::endl;
+//    cout << "Usage: <exe> <datafilelist>" << endl;
 //    return -1;
 //  }
 //
-//  std::vector<std::string> cancerFileNames, healthyFileNames;
+//  vector<string> cancerFileNames, healthyFileNames;
 //  splitFileNamesOnDataType(healthyFileNames,cancerFileNames, argv[1]);
 //
-//  std::vector<std::string> cancerReads, healthyReads;
-//  std::vector<gsaTuple> cancerGSA, healthyGSA;
+//  vector<string> cancerReads, healthyReads;
+//  vector<gsaTuple> cancerGSA, healthyGSA;
 //  if (!healthyFileNames.empty()) {
 //    healthyGSA = buildGSA(healthyFileNames, healthyReads);
 //  }
@@ -60,24 +62,24 @@ enum {MUTANT, NON_MUTANT};
 //    cancerGSA  = buildGSA(cancerFileNames, cancerReads);
 //  }
 //
-//  std::cout << "Size of cancer gsa: " << cancerGSA.size() << std::endl;
-//  std::cout << "Size of cancer reads: " << cancerReads.size() << std::endl;
+//  cout << "Size of cancer gsa: " << cancerGSA.size() << endl;
+//  cout << "Size of cancer reads: " << cancerReads.size() << endl;
 //
 //  for (gsaTuple const& tup : cancerGSA) {
-//    std::cout << cancerReads[tup.read_idx].substr(tup.offset) << std::endl;
+//    cout << cancerReads[tup.read_idx].substr(tup.offset) << endl;
 //  }
 //  
-//  std::string read = "HelloMrPostmanLookAtMeWoahYeah";
-//  std::set<unsigned int> found_reads = findReadsCoveringLocation(cancerReads,
+//  string read = "HelloMrPostmanLookAtMeWoahYeah";
+//  set<unsigned int> found_reads = findReadsCoveringLocation(cancerReads,
 //      cancerGSA, read);
-//  std::cout << std::endl << std::endl << "Identfied reads: " << std::endl;
+//  cout << endl << endl << "Identfied reads: " << endl;
 //  for (unsigned int read_idx : found_reads) {
-//    std::cout << cancerReads[read_idx] << std::endl;
+//    cout << cancerReads[read_idx] << endl;
 //  }
 //}
 
-std::string rc(std::string const& s) {
-  std::string rc_s = "";
+string rc(string const& s) {
+  string rc_s = "";
   for(int i = s.size()-1; i >=0; i--) {
     switch (s[i]) {
       case 'A': rc_s.push_back('T'); break;
@@ -88,61 +90,48 @@ std::string rc(std::string const& s) {
   }
   return rc_s;
 }
-std::vector<snippetData>
-extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
-                             std::vector<std::string> const& reads,
-                             std::vector<gsaTuple> const& gsa,
+vector<snippetData>
+extractReadsCoveringSnippets(vector<coordinateData> const& coords,
+                             vector<string> const& reads,
+                             vector<gsaTuple> const& gsa,
                              TissueType tissue) {
-
-  std::vector<snippetData> results;
-
+  vector<snippetData> results;
   for (coordinateData const& coord : coords) {
     // set up snippets
-    std::set<unsigned int> fwdNonMutated, revNonMutated, fwdMutated, revMutated;
-    std::string fwd_non_mut(coord.sequence), fwd_mut(coord.sequence);
+    set<gsaTuple, gsaTupleCompare> fwdNonMutated, revNonMutated, fwdMutated, revMutated;
+    string fwd_non_mut(coord.sequence), fwd_mut(coord.sequence);
     fwd_mut[coord.flanking_dist] = coord.cBase;
-    std::string rev_non_mut(rc(fwd_non_mut)), rev_mut(rc(fwd_mut));
+    string rev_non_mut(rc(fwd_non_mut)), rev_mut(rc(fwd_mut));
 
- 
+
     // search for reads 
-    fwdNonMutated = findReadsCoveringLocation(reads, gsa, fwd_non_mut);
-    fwdMutated    = findReadsCoveringLocation(reads, gsa, fwd_mut);
-    revNonMutated = findReadsCoveringLocation(reads, gsa, rev_non_mut);
-    revMutated    = findReadsCoveringLocation(reads, gsa, rev_mut);
+    fwdNonMutated =  
+      findReadsCoveringLocation(reads, gsa, fwd_non_mut, Orientation::fwd, Covers::nonMut);
+    fwdMutated    =  
+      findReadsCoveringLocation(reads, gsa, fwd_mut,     Orientation::fwd, Covers::mut);
+    revNonMutated =  
+      findReadsCoveringLocation(reads, gsa, rev_non_mut, Orientation::rev, Covers::nonMut);
+    revMutated    =  
+      findReadsCoveringLocation(reads, gsa, rev_mut,     Orientation::rev, Covers::mut);
 
     // load data int snippetCoord
     snippetData entry;
-    entry.header = coord.header; entry.snippet = coord.sequence;
-    entry.healthy = coord.hBase; entry.cancer = coord.cBase;
-    entry.mutationLocation = coord.coordinate; entry.tissue = tissue;
-    entry.fd = coord.flanking_dist;
+    entry.header           = coord.header; 
+    entry.snippet          = coord.sequence;
+    entry.healthy          = coord.hBase; 
+    entry.cancer           = coord.cBase;
+    entry.mutationLocation = coord.coordinate; 
+    entry.tissue           = tissue;
+    entry.fd               = coord.flanking_dist;
 
-    // Merge forward and reverse sets, of the non/mutated searches
-    fwdNonMutated.insert(revNonMutated.begin(), revNonMutated.end());
-    revNonMutated.clear();
-    fwdMutated.insert(revMutated.begin(), revMutated.end());
-    revMutated.clear();
+    // first insert the reads covering non mutated sequence in both orientations
+    entry.coveringReads.insert(fwdNonMutated.begin(), fwdNonMutated.end())
+    entry.coveringReads.insert(revNonMutated.begin(), revNonMutated.end())
 
-    // copy non mutated over to snippetCoord
-    for (unsigned int read_idx : fwdNonMutated) {
-      entry.reads.push_back(reads[read_idx]);
-      entry.read_idx.push_back(read_idx);
-      entry.found_on.push_back(NON_MUTANT);
-    }
-
-    // only copy over mutated reads uniquely found on the mutated read search.
-    // Mark as MUTANT if added 
-    for (std::set<unsigned int>::iterator it = fwdMutated.begin();
-        it != fwdMutated.end(); it++) {
-      std::pair<std::set<unsigned int>::iterator, bool> newRead = 
-        fwdNonMutated.insert(*it);
-
-      if (newRead.second == true) {
-        entry.reads.push_back(reads[*it]);
-        entry.read_idx.push_back(*it);
-        entry.found_on.push_back(MUTANT);
-      }
-    }
+    // Then insert reads covering mutated sequence. Note, most of these
+    // will be rejected, as only a reads uniquely cover the mutated sequence
+    entry.coveringReads.insert(fwdMutated.begin(), fwdMutated.end())
+    entry.coveringReads.insert(revMutated.begin(), revMutated.end())
 
     // done filling entry data
     results.push_back(entry);
@@ -150,32 +139,36 @@ extractReadsCoveringSnippets(std::vector<coordinateData> const& coords,
   return results;
 }
 
-void printSnippetData(std::ostream & out, std::vector<snippetData> const& data) {
+void printSnippetData(ostream & out, vector<snippetData> const& data) {
   for (snippetData const& entry : data) {
     out << "Header: "  << entry.header 
               << " - " << entry.healthy << ":" << entry.cancer
               << " - " << ((entry.tissue == TissueType::healthy) ? "H":"T")
-              << std::endl;
+              << endl;
 
-    out << "Snippt: "  << entry.snippet << std::endl;
-    out << "Coord : "  << entry.mutationLocation << std::endl;
-    out << "Reads : " << std::endl;
+    out << "Snippt: "  << entry.snippet << endl;
+    out << "Coord : "  << entry.mutationLocation << endl;
+    out << "Reads : " << endl;
     for (int i = 0; i < entry.reads.size(); i++) {
       out << entry.reads[i] << " :: "
                 << entry.read_idx[i]  << " :: "
-                << ((entry.found_on[i]) ? "N" : "M") << std::endl;
+                << ((entry.found_on[i]) ? "N" : "M") << endl;
     }
   }
 }
 
+void printAlignedRead(string const& snippet, string const& read, 
+    int read_idx
 
-std::set<gsaTuple> findReadsCoveringLocation(std::vector<std::string> const&
-    reads, std::vector<gsaTuple> const& gsa, std::string const& query) {
-  std::set<gsaTuple, compareGSATuple> readsCoveringLocation;
+set<gsaTuple, gsaTupleCompare> 
+findReadsCoveringLocation(vector<string> const& reads, 
+  vector<gsaTuple> const& gsa, string const& query, Orientation ori,
+  Covers cov) {
 
+  set<gsaTuple, compareGSATuple> readsCoveringLocation;
   for(int i=0; i < query.size - 30; i++) {
-    std::string querySubstr = query.substr(i, 30);
-    std::vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa,
+    string querySubstr = query.substr(i, 30);
+    vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa,
         querySubstr);
 
     if (result != gsa.end()) {
@@ -183,7 +176,7 @@ std::set<gsaTuple> findReadsCoveringLocation(std::vector<std::string> const&
       readsCoveringLocation.insert(*result); // input the hit element
 
       // search back
-      std::vector<gsaTuple>::const_iterator leftArrow = result-1;
+      vector<gsaTuple>::const_iterator leftArrow = result-1;
       if (leftArrow >= gsa.begin()) {
         while (
             lcp(reads[leftArrow->read_idx]
@@ -191,30 +184,22 @@ std::set<gsaTuple> findReadsCoveringLocation(std::vector<std::string> const&
               >= MIN_SUFFIX_SIZE) {
 
           // try and insert into set
-          std::pair<std::set<gsaTuple>::iterator, bool> success = 
-          readsCoveringLocation.insert(*leftArrow);
-          // if inserted, set relative_to
-          if (success.second == true) {
-            sucess.first->relative_to = i;
-          }
+          gsaTuple entry(leftArrow->read_idx, leftArrow->offset, ori, cov, i);
+          readsCoveringLocation.insert(entry);
           leftArrow--;
           if (leftArrow < gsa.begin()) break;
         }
       }
       // search forward
-      std::vector<gsaTuple>::const_iterator rightArrow = result + 1;
+      vector<gsaTuple>::const_iterator rightArrow = result + 1;
       if (rightArrow < gsa.end()) {
         while (lcp(reads[rightArrow->read_idx]
               .substr(rightArrow->offset), querySubstr)
               >= MIN_SUFFIX_SIZE) {
           
           // try and insert into set
-          std::pair<std::set<gsaTuple>::iterator, bool> success = 
-          readsCoveringLocation.insert(*rightArrow);
-          // if inserted, set relative_to
-          if (success.second == true) {
-            success.first->relative_to = i;
-          }
+          gsaTuple entry(rightArrow->read_idx, rightArrow->offset, ori, cov, i);
+          readsCoveringLocation.insert(entry);
           rightArrow++;
           if (rightArrow >= gsa.end()) break;
         }
@@ -223,54 +208,56 @@ std::set<gsaTuple> findReadsCoveringLocation(std::vector<std::string> const&
   }
   return readsCoveringLocation;
 }
-std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const& reads,
-    std::vector<gsaTuple> const& gsa, std::string const& query) {
-  std::set<unsigned int> readsCoveringLocation;
 
-  for (int i=0; i <= query.size() - 30; i++) {
-    std::string querySubstr = query.substr(i, 30);
-    std::vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa, querySubstr);
-    if (result != gsa.end()) {
+//set<unsigned int> findReadsCoveringLocation(vector<string> const& reads,
+//    vector<gsaTuple> const& gsa, string const& query) {
 
-      // input result
-      readsCoveringLocation.insert(result->read_idx);
-      // search back
-      std::vector<gsaTuple>::const_iterator leftArrow = result-1;
-      if (leftArrow >= gsa.begin()) {
-        while (
-            lcp(reads[leftArrow->read_idx]
-              .substr(leftArrow->offset), querySubstr)
-              >= MIN_SUFFIX_SIZE) {
-          readsCoveringLocation.insert(leftArrow->read_idx);
-          leftArrow--;
-          if (leftArrow < gsa.begin()) break;
-        }
-      }
-      // search forward
-      std::vector<gsaTuple>::const_iterator rightArrow = result + 1;
-      if (rightArrow < gsa.end()) {
-        while (lcp(reads[rightArrow->read_idx]
-              .substr(rightArrow->offset), querySubstr)
-              >= MIN_SUFFIX_SIZE) {
-            readsCoveringLocation.insert(rightArrow->read_idx);
-            rightArrow++;
-            if (rightArrow >= gsa.end()) break;
-        }
-      }
-    }
-  }
-  return readsCoveringLocation;
-}
+//  set<unsigned int> readsCoveringLocation;
+//
+//  for (int i=0; i <= query.size() - 30; i++) {
+//    string querySubstr = query.substr(i, 30);
+//    vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa, querySubstr);
+//    if (result != gsa.end()) {
+//
+//      // input result
+//      readsCoveringLocation.insert(result->read_idx);
+//      // search back
+//      vector<gsaTuple>::const_iterator leftArrow = result-1;
+//      if (leftArrow >= gsa.begin()) {
+//        while (
+//            lcp(reads[leftArrow->read_idx]
+//              .substr(leftArrow->offset), querySubstr)
+//              >= MIN_SUFFIX_SIZE) {
+//          readsCoveringLocation.insert(leftArrow->read_idx);
+//          leftArrow--;
+//          if (leftArrow < gsa.begin()) break;
+//        }
+//      }
+//      // search forward
+//      vector<gsaTuple>::const_iterator rightArrow = result + 1;
+//      if (rightArrow < gsa.end()) {
+//        while (lcp(reads[rightArrow->read_idx]
+//              .substr(rightArrow->offset), querySubstr)
+//              >= MIN_SUFFIX_SIZE) {
+//            readsCoveringLocation.insert(rightArrow->read_idx);
+//            rightArrow++;
+//            if (rightArrow >= gsa.end()) break;
+//        }
+//      }
+//    }
+//  }
+//  return readsCoveringLocation;
+//}
 
-std::vector<gsaTuple>::const_iterator  binarySearch(std::vector<std::string> const& reads, 
-    std::vector<gsaTuple> const& gsa, std::string const& query)
+vector<gsaTuple>::const_iterator  binarySearch(vector<string> const& reads, 
+    vector<gsaTuple> const& gsa, string const& query)
 {
   long unsigned int left{0};
   long unsigned int right{gsa.size()};
   long unsigned int mid;
   while (left < right) {
     mid = left + ((right - left) / 2);
-    std::string suffix = reads[gsa[mid].read_idx].substr(gsa[mid].offset);
+    string suffix = reads[gsa[mid].read_idx].substr(gsa[mid].offset);
     if (lcp(query, reads[gsa[mid].read_idx].substr(gsa[mid].offset)) >=
         MIN_SUFFIX_SIZE) {
       return gsa.begin() + mid;
@@ -281,51 +268,51 @@ std::vector<gsaTuple>::const_iterator  binarySearch(std::vector<std::string> con
   return gsa.end();
 }
 
-int lcp(std::string const& a, std::string const& b) {
+int lcp(string const& a, string const& b) {
   int lcp = 0;
   for(; a[lcp] == b[lcp]; lcp++);
   return lcp;
 }
 
-void printReadsAndId(int from, int to, int step, std::vector<std::string> const&
-    reads, std::string const& nameOfContainer) {
-  ofstream ofile("/data/ic711/idEquivQueryFastq.txt", std::ios_base::app);
+void printReadsAndId(int from, int to, int step, vector<string> const&
+    reads, string const& nameOfContainer) {
+  ofstream ofile("/data/ic711/idEquivQueryFastq.txt", ios_base::app);
 
-  ofile << nameOfContainer << std::endl;
+  ofile << nameOfContainer << endl;
   if(from < 0 || to > reads.size()) {
-    std::cout << "Out of range" << std::endl;
+    cout << "Out of range" << endl;
     exit(1);
   }
   for(; from < to; from += step) {
-    ofile << reads[from] << " : " << from << std::endl;
+    ofile << reads[from] << " : " << from << endl;
   }
   ofile.close();
 }
 
 
-std::vector<gsaTuple> buildGSA(std::vector<std::string> const& fileNames,
-    std::vector<std::string> & reads, std::string const& nameOfContainer) {
+vector<gsaTuple> buildGSA(vector<string> const& fileNames,
+    vector<string> & reads, string const& nameOfContainer) {
 
   // extract reads from tar.gz file
-  for (std::string const& filename  : fileNames) {
+  for (string const& filename  : fileNames) {
     loadFastq(filename, reads);
   }
 
-  std::cout << "Loaded fastq data." << std::endl;
+  cout << "Loaded fastq data." << endl;
 
   // construct bsa
-  std::vector<std::pair<unsigned int, unsigned int > > bsa = constructBSA(reads);
-  std::cout << "Constructed bsa " << std::endl;
+  vector<pair<unsigned int, unsigned int > > bsa = constructBSA(reads);
+  cout << "Constructed bsa " << endl;
 
   // construct sa
-  std::string concat;
+  string concat;
   for(auto r : reads) concat += r;
   unsigned long long * sa;
   sa = Radix<unsigned long long>((uchar*) concat.c_str(), concat.size()).build();
-  std::cout << "Constructed sa" << std::endl;
+  cout << "Constructed sa" << endl;
 
   // construct gsa
-  std::vector<gsaTuple> gsa;
+  vector<gsaTuple> gsa;
   for(unsigned long long int i=0; i < concat.size(); i++) {
     pair <unsigned int, unsigned int> read_concat_pair;
     read_concat_pair = binarySearch(bsa, sa[i]);
@@ -340,12 +327,12 @@ std::vector<gsaTuple> buildGSA(std::vector<std::string> const& fileNames,
     gsa.push_back(gsaElem); 
   }
   delete [] sa;
-  std::cout << "Constructed gsa" << std::endl;
+  cout << "Constructed gsa" << endl;
   return gsa;
 }
 
-std::pair<unsigned int, unsigned int> binarySearch(
-                  std::vector<std::pair<unsigned int, unsigned int> > const& BSA, 
+pair<unsigned int, unsigned int> binarySearch(
+                  vector<pair<unsigned int, unsigned int> > const& BSA, 
                   unsigned int suffix_index) {
 
   unsigned int right = BSA.size();
@@ -370,30 +357,30 @@ std::pair<unsigned int, unsigned int> binarySearch(
   return BSA[left]; // left should be on the seq
 }
 
-std::vector<std::pair<unsigned int, unsigned int> > constructBSA(
-    std::vector<std::string> const & reads) {
+vector<pair<unsigned int, unsigned int> > constructBSA(
+    vector<string> const & reads) {
 
-  std::vector<std::pair<unsigned int, unsigned int> > bsa;
+  vector<pair<unsigned int, unsigned int> > bsa;
   unsigned int index_in_concat = 0;
-  std::pair<unsigned int, unsigned int> firstRead(0, 0);
+  pair<unsigned int, unsigned int> firstRead(0, 0);
   bsa.push_back(firstRead);
 
   for (unsigned int i=1; i < reads.size(); i++) {
     index_in_concat += reads[i-1].size();
-    std::pair<unsigned int, unsigned int> bsa_element(i, index_in_concat);
+    pair<unsigned int, unsigned int> bsa_element(i, index_in_concat);
     bsa.push_back(bsa_element);
   }
 
   return bsa;
 }
 
-void splitFileNamesOnDataType(std::vector<std::string> & hFiles, 
-    std::vector<std::string> & cFiles, std::string const& dataFile) {
-  std::ifstream dataFileHandle(dataFile);
-  std::string line;
-  while (std::getline(dataFileHandle, line)) {
-    std::vector<std::string> fields;
-    std::string token = ",";
+void splitFileNamesOnDataType(vector<string> & hFiles, 
+    vector<string> & cFiles, string const& dataFile) {
+  ifstream dataFileHandle(dataFile);
+  string line;
+  while (getline(dataFileHandle, line)) {
+    vector<string> fields;
+    string token = ",";
     split_string(line, token, fields);
     if (fields[1] == "H") {         // store filenames
       hFiles.push_back(fields[0]);
@@ -405,14 +392,14 @@ void splitFileNamesOnDataType(std::vector<std::string> & hFiles,
 }
 
 
-void loadFastq(std::string filename, std::vector<std::string> &p_data) {
+void loadFastq(string filename, vector<string> &p_data) {
 
-  std::cout << "Loading reads from " << filename << std::endl;
+  cout << "Loading reads from " << filename << endl;
   gzFile data_file;
   data_file = gzopen(filename.c_str(), "r");    // open stream to next fastq.gz 
   kseq_t *seq = kseq_init(data_file);           // init parser
 
-  std::vector<fastq_t> fastq_elements;
+  vector<fastq_t> fastq_elements;
 
   // Load data from file into array
   int eof_check;
@@ -437,10 +424,10 @@ void loadFastq(std::string filename, std::vector<std::string> &p_data) {
  
 
   // MULTITHREADED SECTION
-  std::vector<std::thread> thread_group;                      // set up thread store
+  vector<thread> thread_group;                      // set up thread store
   thread_group.reserve(N_THREADS);
 
-  std::vector<fastq_t> *fastq_elements_p = &fastq_elements;
+  vector<fastq_t> *fastq_elements_p = &fastq_elements;
 
   int elements_per_thread = (fastq_elements.size() / N_THREADS);
   int from = 0, to = elements_per_thread;
@@ -450,14 +437,14 @@ void loadFastq(std::string filename, std::vector<std::string> &p_data) {
   for(int i=0; i < N_THREADS; ++i) {
     // run thread, processing a chunk of the raw data
     thread_group.push_back(
-         std::thread(&qualityProcessRawData, 
+         thread(&qualityProcessRawData, 
                      fastq_elements_p, &p_data, from, to, i));
 
 
     // set up next chunk
     from = to;
     if (i == N_THREADS-1) {// last thread
-      std::cout << "All reads input" << std::endl;
+      cout << "All reads input" << endl;
       to = fastq_elements.size();
     }
     else {
@@ -472,17 +459,17 @@ void loadFastq(std::string filename, std::vector<std::string> &p_data) {
 
 }
 
-void qualityProcessRawData(std::vector<fastq_t> *r_data, 
-                           std::vector<std::string> *p_data,
+void qualityProcessRawData(vector<fastq_t> *r_data, 
+                           vector<string> *p_data,
                            int from,
                            int to, int tid){
 
   // from, to define the range this thread will process
-  std::vector<std::string> localThreadsStore;
+  vector<string> localThreadsStore;
   localThreadsStore.reserve(to - from);
 
-  std::cout << "Thread " << tid << " processing section: " << from  
-       << " - " << to << std::endl;
+  cout << "Thread " << tid << " processing section: " << from  
+       << " - " << to << endl;
 
 
   // Search through string, first determining quality, then 
@@ -498,8 +485,8 @@ void qualityProcessRawData(std::vector<fastq_t> *r_data,
 
 
     // link iterators to quality read of the next fastq elem
-    std::string::iterator iter  = (*r_data)[i].qual.begin();
-    std::string::iterator end   = (*r_data)[i].qual.end();
+    string::iterator iter  = (*r_data)[i].qual.begin();
+    string::iterator end   = (*r_data)[i].qual.end();
     n_low_qual_bases = 0.0;                           // count low qual
     while (iter != end) {
       if (*iter < PHRED_20) {
@@ -517,7 +504,7 @@ void qualityProcessRawData(std::vector<fastq_t> *r_data,
     // else, deemed high quality
 
 
-    std::vector<std::string> tokenless_set;
+    vector<string> tokenless_set;
     split_string((*r_data)[i].seq, REMOVED_TOKENS, tokenless_set); // remove tok
     for (int i=0; i < tokenless_set.size(); i++) {
       if(tokenless_set[i].length() >= MIN_SUFFIX_SIZE - TERM_CHAR_CORRECTION) {
@@ -526,8 +513,8 @@ void qualityProcessRawData(std::vector<fastq_t> *r_data,
     }
   }
 
-  std::lock_guard<std::mutex> lock(quality_processing_lock); // coordinate threads
-  for (std::string accepted_read : localThreadsStore) {
+  lock_guard<mutex> lock(quality_processing_lock); // coordinate threads
+  for (string accepted_read : localThreadsStore) {
     p_data->push_back(accepted_read);
   }
 
@@ -539,11 +526,11 @@ void qualityProcessRawData(std::vector<fastq_t> *r_data,
 
     //  // if the character 'N' is hit, and the distance from left to 
     //  // right is more than 30 store substring
-    //  if(*right == 'N' && (std::distance(left, right) >= 30)) { 
+    //  if(*right == 'N' && (distance(left, right) >= 30)) { 
 
     //    localThreadsStore.push_back(
     //        (*r_data)[i].seq.substr( (left - (*r_data)[i].seq.begin()), // from left
-    //          std::distance(left, right) ) + "$"
+    //          distance(left, right) ) + "$"
     //    );
 
     //    // right now pointing at 'N', so move one char forward
@@ -563,10 +550,10 @@ void qualityProcessRawData(std::vector<fastq_t> *r_data,
     //}
 
     //// Whole string was 'N'-less
-    //if (std::distance(left, right) >= 30) {
+    //if (distance(left, right) >= 30) {
     //    localThreadsStore.push_back(
     //        (*r_data)[i].seq.substr( (left - (*r_data)[i].seq.begin()), // from left
-    //          std::distance(left, right) ) + "$"
+    //          distance(left, right) ) + "$"
     //    );
     //}
 }
