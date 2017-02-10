@@ -91,8 +91,9 @@ std::vector<gsaTuple>::const_iterator binarySearch(std::vector<std::string> cons
 
 int lcp(std::string const& a, std::string const& b);
 
-std::set<unsigned int> findReadsCoveringLocation(std::vector<std::string> const&
-    reads, std::vector<gsaTuple> const& gsa, std::string const& query);
+std::set<gsaTuple, compareGSATuple> findReadsCoveringLocation(std::vector<std::string> const&
+    reads, std::vector<gsaTuple> const& gsa, std::string const& query,
+    Orientation ori, Covers cov);
 
 std::vector<snippetData>
 extractReadsCoveringSnippets(std::vector<coordinateData>
@@ -100,7 +101,9 @@ extractReadsCoveringSnippets(std::vector<coordinateData>
     std::vector<gsaTuple> const& gsa,
     TissueType tissue);
 
-void printSnippetData(std::ostream & out, std::vector<snippetData> const& data);
+void printSnippetData(std::ostream & out, std::vector<snippetData> const& data,
+     std::vector<std::string> const& healthyReads, std::vector<std::string>
+     const& cancerReads);
 
 void printReadsAndId(int from, int to, int step, std::vector<std::string> const&
     reads, std::string const& nameOfContainer);

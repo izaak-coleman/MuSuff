@@ -98,7 +98,7 @@ extractReadsCoveringSnippets(vector<coordinateData> const& coords,
   vector<snippetData> results;
   for (coordinateData const& coord : coords) {
     // set up snippets
-    set<gsaTuple, gsaTupleCompare> fwdNonMutated, revNonMutated, fwdMutated, revMutated;
+    set<gsaTuple, compareGSATuple> fwdNonMutated, revNonMutated, fwdMutated, revMutated;
     string fwd_non_mut(coord.sequence), fwd_mut(coord.sequence);
     fwd_mut[coord.flanking_dist] = coord.cBase;
     string rev_non_mut(rc(fwd_non_mut)), rev_mut(rc(fwd_mut));
@@ -125,13 +125,13 @@ extractReadsCoveringSnippets(vector<coordinateData> const& coords,
     entry.fd               = coord.flanking_dist;
 
     // first insert the reads covering non mutated sequence in both orientations
-    entry.coveringReads.insert(fwdNonMutated.begin(), fwdNonMutated.end())
-    entry.coveringReads.insert(revNonMutated.begin(), revNonMutated.end())
+    entry.coveringReads.insert(fwdNonMutated.begin(), fwdNonMutated.end());
+    entry.coveringReads.insert(revNonMutated.begin(), revNonMutated.end());
 
     // Then insert reads covering mutated sequence. Note, most of these
     // will be rejected, as only a reads uniquely cover the mutated sequence
-    entry.coveringReads.insert(fwdMutated.begin(), fwdMutated.end())
-    entry.coveringReads.insert(revMutated.begin(), revMutated.end())
+    entry.coveringReads.insert(fwdMutated.begin(), fwdMutated.end());
+    entry.coveringReads.insert(revMutated.begin(), revMutated.end());
 
     // done filling entry data
     results.push_back(entry);
@@ -139,34 +139,42 @@ extractReadsCoveringSnippets(vector<coordinateData> const& coords,
   return results;
 }
 
-void printSnippetData(ostream & out, vector<snippetData> const& data) {
+void printSnippetData(ostream & out, vector<snippetData> const& data, 
+    vector<string> const& healthyReads, vector<string> const& cancerReads) {
+
+
   for (snippetData const& entry : data) {
     out << "Header: "  << entry.header 
               << " - " << entry.healthy << ":" << entry.cancer
               << " - " << ((entry.tissue == TissueType::healthy) ? "H":"T")
               << endl;
-
     out << "Snippt: "  << entry.snippet << endl;
     out << "Coord : "  << entry.mutationLocation << endl;
     out << "Reads : " << endl;
-    for (int i = 0; i < entry.reads.size(); i++) {
-      out << entry.reads[i] << " :: "
-                << entry.read_idx[i]  << " :: "
-                << ((entry.found_on[i]) ? "N" : "M") << endl;
+
+    // output read an all metadata, python script will deal with th e
+    // alignment during the stats reporting, as this output is 
+    // not for human readablity.
+    vector<string> const& reads = ((entry.tissue == TissueType::healthy) ? healthyReads : cancerReads);
+    for (gsaTuple const& tuple : entry.coveringReads) {
+      cout << reads[tuple.read_idx] << " :: " 
+           << ((tuple.covers == Covers::nonMut) ? "N" : "M") << " :: "
+           << ((tuple.orientation == Orientation::fwd) ? "F" : "R") << " :: "
+           << tuple.offset << " :: "
+           << tuple.relative_to
+           << endl;
     }
   }
 }
 
-void printAlignedRead(string const& snippet, string const& read, 
-    int read_idx
 
-set<gsaTuple, gsaTupleCompare> 
+set<gsaTuple, compareGSATuple> 
 findReadsCoveringLocation(vector<string> const& reads, 
   vector<gsaTuple> const& gsa, string const& query, Orientation ori,
   Covers cov) {
 
   set<gsaTuple, compareGSATuple> readsCoveringLocation;
-  for(int i=0; i < query.size - 30; i++) {
+  for(int i=0; i < query.size() - 30; i++) {
     string querySubstr = query.substr(i, 30);
     vector<gsaTuple>::const_iterator result = binarySearch(reads, gsa,
         querySubstr);

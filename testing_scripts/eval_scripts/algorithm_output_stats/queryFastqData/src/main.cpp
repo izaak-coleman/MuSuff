@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
       });
 
   ofstream oFileHandle(argv[3]);
-  printSnippetData(oFileHandle, cancerExtraction);
+  printSnippetData(oFileHandle, cancerExtraction, healthyReads, cancerReads);
 
   return 0;
 }
