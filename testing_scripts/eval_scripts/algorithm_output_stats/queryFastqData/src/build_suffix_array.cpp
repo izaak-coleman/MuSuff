@@ -157,12 +157,13 @@ void printSnippetData(ostream & out, vector<snippetData> const& data,
     // not for human readablity.
     vector<string> const& reads = ((entry.tissue == TissueType::healthy) ? healthyReads : cancerReads);
     for (gsaTuple const& tuple : entry.coveringReads) {
-      cout << reads[tuple.read_idx] << " :: " 
-           << ((tuple.covers == Covers::nonMut) ? "N" : "M") << " :: "
-           << ((tuple.orientation == Orientation::fwd) ? "F" : "R") << " :: "
-           << tuple.offset << " :: "
-           << tuple.relative_to
-           << endl;
+      out << reads[tuple.read_idx] << " :: " 
+          << tuple.read_idx << " :: "
+          << ((tuple.covers == Covers::nonMut) ? "N" : "M") << " :: "
+          << ((tuple.orientation == Orientation::fwd) ? "F" : "R") << " :: "
+          << tuple.offset << " :: "
+          << tuple.relative_to
+          << endl;
     }
   }
 }
@@ -181,7 +182,8 @@ findReadsCoveringLocation(vector<string> const& reads,
 
     if (result != gsa.end()) {
 
-      readsCoveringLocation.insert(*result); // input the hit element
+      gsaTuple seed(result->read_idx, result->offset, ori, cov, i);
+      readsCoveringLocation.insert(seed); // input the hit element
 
       // search back
       vector<gsaTuple>::const_iterator leftArrow = result-1;
