@@ -22,7 +22,8 @@ class FalseNegativeEntry(dict):
     int(entryData[self.COORD_IDX][entryData[self.COORD_IDX].find(":") + 2:])
 
     reads = [tuple(read.split(" :: ")) for read in entryData[self.READ_IDX:]]
-    reads = [(read, int(read_id), found) for (read, read_id, found) in reads]
+    reads = [(read, int(idx), nm, fr, int(offset), int(rel)) 
+    for (read, idx, nm, fr, offset, rel) in reads]
 
     if tissueType == "H":
       self["hReads"] = reads
@@ -39,7 +40,8 @@ class FalseNegativeEntry(dict):
     entryData = [line.strip() for line in entryData]
     _, _, _, tissueType = self.extractHeaderInfo(entryData[self.HEADER_IDX])
     reads = [tuple(read.split(" :: ")) for read in entryData[self.READ_IDX:]]
-    reads = [(read, int(read_id), found) for (read, read_id, found) in reads]
+    reads = [(read, int(idx), nm, fr, int(offset), int(rel)) 
+    for (read, idx, nm, fr, offset, rel) in reads]
     if tissueType == "H":
       self["hReads"] = reads
     else:
@@ -67,21 +69,21 @@ class AnalyseReadsCoveringFN:
       else:
         self.falseNegData[coordinate].updateInfo(entry)
 
+
   def printEntry(self):
     print self.falseNegData[16075001]
-
 
 
   def countThan(self, fun, resultMessage):
     count = 0
     for (k, v) in self.falseNegData.items():
-      if fun(len(v["hReads"])) or fun(len(v["cReads"])):
+      totalReads = len(v["hReads"]) + len(v["cReads"])
+      if fun(totalReads):
         print "Coordi : ", str(k)
         print "H count: ", len(v["hReads"])
         print "T count: ", len(v["cReads"])
         count = count + 1
     print resultMessage, count
-
 
 
   def computeStats(self, reads, tcond, rcond):
@@ -100,9 +102,7 @@ class AnalyseReadsCoveringFN:
     return results
 
 
-
   def quantifyLostReads(self, filename):
-
     statFile = filename + ".stat"
     readFile = filename + ".stat.reads"
     remainingReads = []
@@ -118,36 +118,73 @@ class AnalyseReadsCoveringFN:
        cSet = lambda x: (x, "T") in remainingReads
        nSet = lambda x: x == "N"
        mSet = lambda x: x == "M"
-       result["HealthyTot"] = self.computeStats(v["hReads"], lambda x: True, hSet)
-       result["HealthyM"]   = self.computeStats(v["hReads"], mSet, hSet) 
-       result["HealthyN"]   = self.computeStats(v["hReads"], nSet, hSet)
-       result["CancerTot"]  = self.computeStats(v["cReads"], lambda x: True, cSet)
-       result["CancerN"]    = self.computeStats(v["cReads"], nSet, cSet)
-       result["CancerM"]    = self.computeStats(v["cReads"], mSet, cSet) 
-       result["hBase"] = v["hBase"]
-       result["cBase"] = v["cBase"]
-
-       result["hReads"] = "\n".join(["%s :: %d :: %s" % (read, idx, found)
-        for (read, idx, found) in v["hReads"]])
-
-       result["cReads"] = "\n".join(["%s :: %d :: %s" % (read, idx, found)
-        for (read, idx, found) in v["cReads"]])
-
-       result["coordinate"] = k
-
-       results.append(result)
+       v["HealthyTot"] = self.computeStats(v["hReads"], lambda x: True, hSet)
+       v["HealthyM"]   = self.computeStats(v["hReads"], mSet, hSet) 
+       v["HealthyN"]   = self.computeStats(v["hReads"], nSet, hSet)
+       v["CancerTot"]  = self.computeStats(v["cReads"], lambda x: True, cSet)
+       v["CancerN"]    = self.computeStats(v["cReads"], nSet, cSet)
+       v["CancerM"]    = self.computeStats(v["cReads"], mSet, cSet) 
 
 
     # print stats
     statFileHandle = open(statFile, "w")
-    for result in results:
-      self.printStats(statFileHandle, result)
+    for k, v in self.falseNegData.items():
+      self.printStats(statFileHandle, v)
 
     # print stats and reads
     readFileHandle = open(readFile, "w")
-    for result in results:
-      self.printStats(readFileHandle, result, result["hReads"], result["cReads"])
+    for k, v in self.falseNegData.items():
+      self.printStats(readFileHandle, v, v["hReads"], v["cReads"])
 
+
+  def printReads(self, reads, snippet, fsock):
+    # first sort the reasd into reverse and forward
+    fwdReads, revReads = self.binarySplit(reads, lambda x: x[3] == 'F')
+    revSnippet = self.reverseComplement(snippet)
+    alignedFwd, snippet  = self.alignReads(fwdReads, snippet)
+    alignedRev, revSnippet  = self.alignReads(revReads, revSnippet)
+    self.printMismatches(alignedFwd, fwdReads, snippet, fsock)
+    self.printMismatches(alignedRev, revReads, revSnippet, fsock)
+
+
+  def alignReads(self, reads, snippet, fsock):
+    # Find the maximum offset read
+    maxOffset = max([(offset - relativeTo) for (_,_,_,_, offset, relativeTo) in reads])
+    aligned = ["-" * (maxOffset + (relativeTo - offset)) + read
+      for (read,_,_,_, offset, relativeTo) in reads]
+    return aligned, ("-"*maxOffset + snippet)
+
+
+  def binarySplit(self, reads, cond):
+    return [t for t in reads if cond(t)], [f for f in reads if not cond(f)]
+    
+
+  def printMismatches(self, aligned, readsData, snippet, fsock):
+    fsock.write("Snippet:\n")
+    fsock.write(snippet + "\n")
+    for read in aligned:
+      # determine mismatch positions (excluding gap differences)
+      mismatch_idx = [i for i,x in enumerate(zip(read, snippet),0) if x[0] != x[1] and
+      x[0] != '-' and x[1] != '-']
+
+
+      # determine the length of matching characters between mismatches
+      gaps = [(l[i] - l[i-1] - 1) for i in range(0, len(mismatch_idx))]
+      gaps.insert(0, diffs[0])
+
+      # print the read
+      fsock.write(read + "\n")  # print the read
+      # print a pointer to every mismatch below it in the file
+      for gap in gaps:
+        fsock.write(' '*gap[0] + '^')
+      fsock.write('\n')
+
+
+  def reverseComplement(self, s):
+    complement = ""
+    for ch in s:
+      complement = complement + {'A':'T', 'T':'A', 'C':'G', 'G':'C'}[ch]
+    return complement[::-1]
 
 
   def printStats(self, fileHandle, result, hReads = None, cReads = None, nmData
@@ -179,7 +216,7 @@ class AnalyseReadsCoveringFN:
       )
 
     if hReads != None:
-      fileHandle.write(result["hReads"])
+      printReads(hReads, result["snippet"], fileHandle)
     
     fileHandle.write("Cancer Total Stats (Total, Remain, Perc)\n")
     fileHandle.write("%d, %d, %.2f\n" % (
@@ -205,5 +242,6 @@ class AnalyseReadsCoveringFN:
       )
 
     if cReads != None:
-      fileHandle.write(result["cReads"])
+      printReads(cReads, result["snippet"], fileHandle)
+
     fileHandle.write("\n\n")
