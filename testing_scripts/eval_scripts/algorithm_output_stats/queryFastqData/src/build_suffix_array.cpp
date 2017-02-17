@@ -149,6 +149,9 @@ void printSnippetData(ostream & out, vector<snippetData> const& data,
               << " - " << ((entry.tissue == TissueType::healthy) ? "H":"T")
               << endl;
     out << "Snippt: "  << entry.snippet << endl;
+    string mut(entry.snippet);
+    mut[entry.fd] = entry.cancer;
+    out << "MutSnip: " << mut << endl;
     out << "Coord : "  << entry.mutationLocation << endl;
     out << "Reads : " << endl;
 
@@ -280,7 +283,7 @@ vector<gsaTuple>::const_iterator  binarySearch(vector<string> const& reads,
 
 int lcp(string const& a, string const& b) {
   int lcp = 0;
-  for(; a[lcp] == b[lcp]; lcp++);
+  for(; lcp < a.size() && lcp < b.size() && a[lcp] == b[lcp]; lcp++);
   return lcp;
 }
 
