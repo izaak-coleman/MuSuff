@@ -42,6 +42,12 @@ SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
   cout << "Starting parallelGenRadixSA:" << endl;
 
   parallelGenRadixSA(min_suffix);
+  printSuffixArray("/data/ic711/parallelGenRadixSA.txt");
+  SA.clear();
+  loadUnsortedSuffixes(this->reads->getMinSuffixSize());
+  lexMergeSort();
+  printSuffixArray("/data/ic711/lexMergeSort.txt");
+  
   printReadsInGSA("/data/ic711/point2.txt");
 }
 
@@ -655,10 +661,16 @@ void SuffixArray::printSuffixData() {
   }
 }
 
+void SuffixArray::printSuffixArray(std::string const& filename) {
+  ofstream file(filename);
+  for (Suffix_t & s : SA) {
+    file << reads->returnSuffix(s) << endl;
+  }
+  file.close();
+}
 void SuffixArray::printSuffixes() {
   for(Suffix_t s : SA) {
-    cout << reads->returnSuffix(s) << ", " << reads->
-      returnSuffix(s).size() << endl;  // print every suffix in T/H reads
+    cout << reads->returnSuffix(s) << endl;
   }
 }
 

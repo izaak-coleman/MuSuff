@@ -55,6 +55,7 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
       loadFastqRawDataFromFile(datafiles[i].first, TumourReads);
     }
   }
+  printReadsAndId(0, 100000, 500);
 
   printRemainingReads("/data/ic711/point1.txt");
   cout << "End of ReadsManipulator constructor " << endl;
@@ -298,18 +299,38 @@ ReadsManipulator::~ReadsManipulator() {
 
 
 void ReadsManipulator::printReads(){
-  cout << "Healthy file reads: " << endl;
-  cout << "Size of HealthyReads: " << getSize(HEALTHY) << endl;
+  std::cout << "Healthy file reads: " << endl;
+  std::cout << "Size of HealthyReads: " << getSize(HEALTHY) << endl;
   for(string s : HealthyReads) {
-    cout << s << endl;
+    std::cout << s << endl;
   }
-  cout << endl << endl;
+  std::cout << endl << endl;
 
-  cout << "Tumour file reads: " << endl;
-  cout << "Size of TumourReads: " << getSize(TUMOUR) << endl;
+  std::cout << "Tumour file reads: " << endl;
+  std::cout << "Size of TumourReads: " << getSize(TUMOUR) << endl;
   for(string s : TumourReads) {
-    cout << s << endl;
+    std::cout << s << endl;
   }
+}
+
+
+void ReadsManipulator::printReadsAndId(int from, int to, int step) const {
+  ofstream ofile("/data/ic711/readIdEquivICSmuFin.txt");
+  if (from < 0 || to > HealthyReads.size() || to > TumourReads.size()) {
+    cout << "Out of range" << endl;
+    exit(1);   // should throw
+  }
+  ofile << "Healthy Reads" << endl;
+  for (int it = from; it < to; it += step) {
+    ofile << HealthyReads[it] << " : " << it << endl;
+  }
+
+  ofile << "Cancer Reads" << endl;
+  for (int it = from; it < to; it += step) {
+    ofile << TumourReads[it] << " : " << it << endl;
+  }
+
+  ofile.close();
 }
 
 string::iterator ReadsManipulator::returnStartIterator(Suffix_t &suf) {

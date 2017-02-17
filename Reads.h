@@ -99,6 +99,12 @@ public:
  // returns the name of the final output file
 
  void printRemainingReads(std::string const& filename);
+ // prints the tuples of the read once loaded from files
+
+ void printReadsAndId(int from, int to, int step) const;
+ // iterates through the read containers over interval [from, to) 
+ // with a step size of step. Prints the read, and for each printed
+ // read, prints its id
 
 };
 #endif

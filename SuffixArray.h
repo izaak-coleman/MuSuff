@@ -109,6 +109,8 @@ public:
   void printSuffixData();
   // Function prints out data for each element of the suffix array
 
+  void printSuffixArray(std::string const& filename);
+  // print the suffixes of the suffix array to file
   void printSuffixes();
   // Function prints out the suffix strings assoc. with each element
   // in the suffix array
