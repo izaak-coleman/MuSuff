@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python
+
 import sys
 import AnalyseReadsCoveringFN as fn
 
@@ -21,7 +23,5 @@ def main():
   print "\n\n"
   
   analysis.quantifyLostReads(sys.argv[2])
-
-
 
 main()

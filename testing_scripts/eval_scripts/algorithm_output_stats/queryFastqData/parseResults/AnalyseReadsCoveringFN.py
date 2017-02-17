@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import fileinput
 import itertools
@@ -17,7 +18,8 @@ class FalseNegativeEntry(dict):
     self["header"] = header
     self["hBase"] = hBase
     self["cBase"] = cBase
-    self["snippet"] = entryData[self.SNIPPET_IDX]
+    snippetStart = entryData[self.SNIPPET_IDX].find(":") + 2
+    self["snippet"] = entryData[self.SNIPPET_IDX][snippetStart:]
     self["coordinate"] = \
     int(entryData[self.COORD_IDX][entryData[self.COORD_IDX].find(":") + 2:])
 
@@ -95,8 +97,8 @@ class AnalyseReadsCoveringFN:
       except ZeroDivisionError:
         return 0 
 
-    results["Total"] = len([idx for (_, idx, found) in reads if tcond(found)])
-    results["Rem"]  = len([idx for (_, idx, found) in reads 
+    results["Total"] = len([idx for (_, idx, found,_,_,_) in reads if tcond(found)])
+    results["Rem"]  = len([idx for (_, idx, found,_,_,_) in reads 
         if rcond(idx) and tcond(found)])
     results["Perc"] = percentage(results["Rem"], results["Total"])
     return results
@@ -147,12 +149,15 @@ class AnalyseReadsCoveringFN:
     self.printMismatches(alignedRev, revReads, revSnippet, fsock)
 
 
-  def alignReads(self, reads, snippet, fsock):
+  def alignReads(self, reads, snippet):
     # Find the maximum offset read
-    maxOffset = max([(offset - relativeTo) for (_,_,_,_, offset, relativeTo) in reads])
-    aligned = ["-" * (maxOffset + (relativeTo - offset)) + read
-      for (read,_,_,_, offset, relativeTo) in reads]
-    return aligned, ("-"*maxOffset + snippet)
+    if len(reads) > 0:
+      maxOffset = max([(offset - relativeTo) for (_,_,_,_, offset, relativeTo) in reads])
+      aligned = ["-" * (maxOffset + (relativeTo - offset)) + read
+        for (read,_,_,_, offset, relativeTo) in reads]
+      return aligned, ("-"*maxOffset + snippet)
+    else:
+      return [], snippet
 
 
   def binarySplit(self, reads, cond):
@@ -162,28 +167,24 @@ class AnalyseReadsCoveringFN:
   def printMismatches(self, aligned, readsData, snippet, fsock):
     fsock.write("Snippet:\n")
     fsock.write(snippet + "\n")
-    for read in aligned:
-      # determine mismatch positions (excluding gap differences)
-      mismatch_idx = [i for i,x in enumerate(zip(read, snippet),0) if x[0] != x[1] and
-      x[0] != '-' and x[1] != '-']
 
+    if aligned != []:
+      for read in aligned:
+        # first, print the read
+        fsock.write(read + "\n")
 
-      # determine the length of matching characters between mismatches
-      gaps = [(l[i] - l[i-1] - 1) for i in range(0, len(mismatch_idx))]
-      gaps.insert(0, diffs[0])
-
-      # print the read
-      fsock.write(read + "\n")  # print the read
-      # print a pointer to every mismatch below it in the file
-      for gap in gaps:
-        fsock.write(' '*gap[0] + '^')
-      fsock.write('\n')
-
+        # determine mismatch positions (excluding gap differences)
+        matchstr = "".join(
+          ['^' if (readch != snipch and readch != '-' and snipch != '-') else ' ' 
+          for (readch,snipch) in zip(read, snippet)]
+        )
+        #print matchstring
+        fsock.write(matchstr + '\n')
 
   def reverseComplement(self, s):
     complement = ""
     for ch in s:
-      complement = complement + {'A':'T', 'T':'A', 'C':'G', 'G':'C'}[ch]
+      complement = complement + {'A':'T', 'T':'A', 'C':'G', 'G':'C', 'N':'N'}[ch]
     return complement[::-1]
 
 
@@ -216,7 +217,7 @@ class AnalyseReadsCoveringFN:
       )
 
     if hReads != None:
-      printReads(hReads, result["snippet"], fileHandle)
+      self.printReads(hReads, result["snippet"], fileHandle)
     
     fileHandle.write("Cancer Total Stats (Total, Remain, Perc)\n")
     fileHandle.write("%d, %d, %.2f\n" % (
@@ -242,6 +243,6 @@ class AnalyseReadsCoveringFN:
       )
 
     if cReads != None:
-      printReads(cReads, result["snippet"], fileHandle)
+      self.printReads(cReads, result["snippet"], fileHandle)
 
     fileHandle.write("\n\n")
