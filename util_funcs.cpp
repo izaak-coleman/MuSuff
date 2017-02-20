@@ -18,9 +18,9 @@ int computeLCP(Suffix_t &isuf, Suffix_t &jsuf, ReadsManipulator &reads) {
   // computes lcp
   int lcp = 0;
 
-  while (*isuf_iter == *jsuf_iter &&
-         isuf_iter != isuf_end    &&
-         jsuf_iter != jsuf_end      ) {
+  while (isuf_iter != isuf_end &&
+         jsuf_iter != jsuf_end && 
+         *isuf_iter == *jsuf_iter) {
 
     lcp++;      // matched next char, so extend lcp
 
