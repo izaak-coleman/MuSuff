@@ -75,7 +75,8 @@ struct bp_block {
 
 class BranchPointGroups {
 private:
-  std::mutex  cancer_extraction_lock;
+  std::mutex cancer_extraction_lock;
+  std::mutex cout_lock;
 
   ReadsManipulator *reads;
   SuffixArray *SA;    // store a pointer to SA for access

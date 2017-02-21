@@ -27,6 +27,7 @@ using namespace std;
 static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
+static const int CTR = 1;
 
 
 BranchPointGroups::BranchPointGroups(SuffixArray &_SA, 
@@ -40,18 +41,18 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   cout << "Extracting cancer-specific reads..." << endl;
   extractCancerSpecificReads(); 
   outputExtractedCancerReads("/data/ic711/point3.txt");
-  cout << "No of extracted groups: " << CancerExtraction.size() << endl;
+  cout << "No of extracted reads: " << CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
   cout << "Generating breakpoint blocks..." << endl;
 //  makeBreakPointBlocks();
   seedBreakPointBlocks();
-  outputFromBPB("/data/ic711/point4.txt");
+  //outputFromBPB("/data/ic711/point4.txt");
 
   cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
   cout << "Adding non-mutated alleles to blocks." << endl;
   extractNonMutatedAlleles();
-  outputFromBPB("/data/ic711/point5.txt");
+  //outputFromBPB("/data/ic711/point5.txt");
 }
 
 
@@ -88,10 +89,15 @@ BranchPointGroups::~BranchPointGroups() {
 void BranchPointGroups::extractCancerSpecificReads() {
 
   unsigned int elements_per_thread = (SA->getSize()  / N_THREADS);
+  cout << "Elements per thread" << elements_per_thread << endl;
+  cout << "GSA size: " << SA->getSize() << endl;
   vector<thread> workers;
 
   unsigned int from=0, to= elements_per_thread;
   for(int i=0; i < N_THREADS; i++) {
+    if (to == 1599) {
+      cout << "Thread: " << i + 1 << endl;
+    }
     workers.push_back(
       std::thread(&BranchPointGroups::extractionWorker, 
         this, from, to)
@@ -113,13 +119,17 @@ void BranchPointGroups::extractCancerSpecificReads() {
 
 void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int to) {
   set<unsigned int> threadExtr;
-  unsigned int extension = seed_index + 1;
+  unsigned int extension {seed_index + 1};
 
+  {
+    std::lock_guard<std::mutex> l(cout_lock);
+    cout << "to " << to << endl;
+  }
   while (seed_index < to-1) {
-    double c_read{0}, h_read{0};    // reset counts
+    double c_reads{0}, h_reads{0};    // reset counts
 
     // Assuming that a > 2 group will form, start counting from seed_index
-    if (SA->getElem(seed_index).type == HEALTHY) h_read++;
+    if (SA->getElem(seed_index).type == HEALTHY) h_reads++;
     else c_reads++;
 
     while (::computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads)
@@ -133,23 +143,33 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
 
     // Group size == 1 and group sizes of 1 permitted and groups is cancer read
     if (extension - seed_index == 1 && CTR == 1 && SA->getElem(seed_index).type == TUMOUR) {
-      threadExtr.insert(seed_index);           // extract read
+      threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
+      cout << "Adding from CTR 1"  << endl;
+      cout << "seed index from ctr 1 " << seed_index << endl;
+      //{
+      //  std::lock_guard<std::mutex> cout_guard(cout_lock);
+      //  cout << "Hello world" << endl;
+      //}
     }
     else { 
       // Group size > 1. Need to compute econt and check CTR to determine
       // extraction.
       if ((h_reads / c_reads) <= econt && c_reads >= CTR) {
         for (unsigned int i = seed_index; i < extension; i++) {
-          if (SA->getElement(i).type == TUMOUR) {
-            threadExtr.insert(SA->getElement(i).read_id);
+          if (SA->getElem(i).type == TUMOUR) {
+            threadExtr.insert(SA->getElem(i).read_id);
+            //{
+            //  std::lock_guard<std::mutex> cout_guard(cout_lock);
+            //  cout << reads->returnSuffix(SA->getElem(i)) << endl;
+            //}
           }
         }
       }
     }
     seed_index = extension++; 
   }
-
-  std::lock_guard<std::mutex> lock(cancer_extraction_lock); // avoid thread interference
+  // Load to CancerExtraction, avoiding thread interference
+  std::lock_guard<std::mutex> lock(cancer_extraction_lock);
   for(unsigned int extracted_cancer_read : threadExtr) {
       CancerExtraction.insert(extracted_cancer_read);
   }
@@ -196,7 +216,11 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
 //         ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
 //        for (unsigned int i = seed_index; i < extension; i++) {
 //          if(SA->getElem(i).type == TUMOUR) {     // only extr. cancer reads
-//            localThreadExtraction.insert(SA->getElement(i).read_id);
+//            localThreadExtraction.insert(SA->getElem(i).read_id);
+//            {
+//              std::lock_guard<std::mutex> cout_guard(cout_lock);
+//              cout << reads->returnSuffix(SA->getElem(i)) << endl;
+//            }
 //          }
 //        }
 //      }
@@ -209,9 +233,9 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
 //      // it could be unique due to a mutation, and a group could not
 //      // form due to MTT, mutation distribution or low coverage 
 //      // therefore, if it is a cancer read, extract it
-//      if (SA->getElem(seed_index).type == TUMOUR) {
-//        localThreadExtraction.insert(seed_index);
-//      }
+//      //if (SA->getElem(seed_index).type == TUMOUR) {
+//      //  localThreadExtraction.insert(seed_index);
+//      //}
 //      seed_index++;
 //    }
 //
@@ -243,7 +267,10 @@ void BranchPointGroups::seedBreakPointBlocks() {
       reads->getReadByIndex(*it, TUMOUR)
   ) + "$";
 
-
+  cout << "Cancer Extraction size: " <<  CancerExtraction.size() << endl;
+  for (unsigned int idx : CancerExtraction) {
+    cout << idx << endl;
+  }
   unsigned int concat_idx = 0;
   it++;
   for (; it != CancerExtraction.end(); it++) {
@@ -251,6 +278,7 @@ void BranchPointGroups::seedBreakPointBlocks() {
     concat += reads->getReadByIndex(*it, TUMOUR);
     concat += reverseComplementString(reads->getReadByIndex(*it, TUMOUR)) + "$";
     // add bsa values
+    cout << "Seg fault after here" << endl;
     concat_idx += reads->getReadByIndex(*std::prev(it), TUMOUR).size() * 2;
     pair<unsigned int, unsigned int> read_concat_pair (*it, concat_idx);
     binary_search_array.push_back(read_concat_pair);
@@ -264,6 +292,7 @@ void BranchPointGroups::seedBreakPointBlocks() {
 
 
   cout << "Transforming to cancer specfic gsa" << endl;
+
   // transform to GSA
   vector<read_tag> gsa;
   for (unsigned long long i=0; i < concat.size(); i++) {
@@ -695,8 +724,6 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     int &cns_offset, bool tissue_type, unsigned int &pair_id,
     vector< vector<int> > &align_counter) {
   // all seqs get converted to RIGHT orientation, before consensus
-  std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
-    std::endl;
 
   if (BreakPointBlocks[block_idx].size() > COVERAGE_UPPER_THRESHOLD) {
     return "\0";
@@ -844,14 +871,17 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     }
   }// end for
 
-  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
-    cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
-         << ((type_subset[i].tissue_type % 2) ? ", H" : 
-             ((type_subset[i].tissue_type == SWITCHED) ? ", S" : ", T")) << endl;
-  }
-  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  cout << cns << endl << endl;
+  // DEBUG
+  //std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
+  //  std::endl;
+  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  //for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
+  //  cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
+  //       << ((type_subset[i].tissue_type % 2) ? ", H" : 
+  //           ((type_subset[i].tissue_type == SWITCHED) ? ", S" : ", T")) << endl;
+  //}
+  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  //cout << cns << endl << endl;
 
   //for(vector<int> v : align_counter) {
   //  for(int i : v) {

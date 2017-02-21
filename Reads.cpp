@@ -55,7 +55,6 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
       loadFastqRawDataFromFile(datafiles[i].first, TumourReads);
     }
   }
-  printReadsAndId(0, 100000, 500);
 
   printRemainingReads("/data/ic711/point1.txt");
   cout << "End of ReadsManipulator constructor " << endl;
