@@ -95,9 +95,6 @@ void BranchPointGroups::extractCancerSpecificReads() {
 
   unsigned int from=0, to= elements_per_thread;
   for(int i=0; i < N_THREADS; i++) {
-    if (to == 1599) {
-      cout << "Thread: " << i + 1 << endl;
-    }
     workers.push_back(
       std::thread(&BranchPointGroups::extractionWorker, 
         this, from, to)
@@ -121,16 +118,22 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
   set<unsigned int> threadExtr;
   unsigned int extension {seed_index + 1};
 
-  {
-    std::lock_guard<std::mutex> l(cout_lock);
-    cout << "to " << to << endl;
-  }
-  while (seed_index < to-1) {
+
+  while (seed_index < to && seed_index != SA->getSize() - 1) {   // CONFIRM EFFECT OF THIS
     double c_reads{0}, h_reads{0};    // reset counts
 
     // Assuming that a > 2 group will form, start counting from seed_index
     if (SA->getElem(seed_index).type == HEALTHY) h_reads++;
     else c_reads++;
+
+    {
+    std::lock_guard<std::mutex> lock(cout_lock);
+    if (seed_index >= SA->getSize() || extension >= SA->getSize()) {
+      if(seed_index == SA->getSize() -1) {
+        cout << "OUT OF BOUNDS!!!" << endl;
+      }
+    }
+    }
 
     while (::computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads)
         >= reads->getMinSuffixSize()) {
@@ -143,37 +146,49 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
 
     // Group size == 1 and group sizes of 1 permitted and groups is cancer read
     if (extension - seed_index == 1 && CTR == 1 && SA->getElem(seed_index).type == TUMOUR) {
-      threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
-      cout << "Adding from CTR 1"  << endl;
-      cout << "seed index from ctr 1 " << seed_index << endl;
-      //{
-      //  std::lock_guard<std::mutex> cout_guard(cout_lock);
-      //  cout << "Hello world" << endl;
-      //}
+      std::pair<std::set<unsigned int>::iterator, bool> success = threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
+      if (success.second) {
+        std::lock_guard<std::mutex> cout_guard(cout_lock);
+        cout << "U: " << reads->returnSuffix(SA->getElem(seed_index)) << endl;
+      }
     }
     else { 
       // Group size > 1. Need to compute econt and check CTR to determine
       // extraction.
       if ((h_reads / c_reads) <= econt && c_reads >= CTR) {
+        std::lock_guard<std::mutex> cout_guard(cout_lock);
         for (unsigned int i = seed_index; i < extension; i++) {
           if (SA->getElem(i).type == TUMOUR) {
             threadExtr.insert(SA->getElem(i).read_id);
-            //{
-            //  std::lock_guard<std::mutex> cout_guard(cout_lock);
-            //  cout << reads->returnSuffix(SA->getElem(i)) << endl;
-            //}
+            {
+              cout << reads->returnSuffix(SA->getElem(i)) << endl;
+            }
           }
         }
       }
     }
     seed_index = extension++; 
   }
+
+  // On very rare cases, the very last value in the GSA is unique. 
+  // In such a case, this value will not have been analysed 
+  // by the loop. In these cases, seed_index == SA.size()-1, rather
+  // than SA.size() - which is the case if the extension proceeds to the
+  // end.  Therefore, if the case condition is true, we need to check
+  // it separately.
+  if (seed_index == SA->getSize() -1) {
+    if (CTR == 1 && SA->getElem(seed_index).type == TUMOUR) {
+      threadExtr.insert(SA->getElem(seed_index).read_id);
+    }
+  }
+
   // Load to CancerExtraction, avoiding thread interference
   std::lock_guard<std::mutex> lock(cancer_extraction_lock);
   for(unsigned int extracted_cancer_read : threadExtr) {
       CancerExtraction.insert(extracted_cancer_read);
   }
 }
+
 
 
 //void BranchPointGroups::extractionWorker(unsigned int seed_index, 

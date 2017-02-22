@@ -38,15 +38,12 @@ static const string EXT = ".gsa";
 
 
 SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
+  cout << "MIN SUFFIX" << (int) min_suffix << endl;
   this->reads = &reads;      // store reads location
   cout << "Starting parallelGenRadixSA:" << endl;
 
   parallelGenRadixSA(min_suffix);
   printSuffixArray("/data/ic711/parallelGenRadixSA.txt");
-  SA.clear();
-  loadUnsortedSuffixes(this->reads->getMinSuffixSize());
-  lexMergeSort();
-  printSuffixArray("/data/ic711/lexMergeSort.txt");
   
   printReadsInGSA("/data/ic711/point2.txt");
 }
@@ -165,38 +162,60 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
       pair<unsigned int, unsigned int > read_concat_tup = 
         binarySearch(*healthyBSA, radixSA[i]);
 
-      if((radixSA[i] - read_concat_tup.second) <=
-          (reads->getReadByIndex(read_concat_tup.first, HEALTHY).size() - min_suf)) {
-        Suffix_t s;
-        s.read_id = read_concat_tup.first;
-        s.offset = radixSA[i] - read_concat_tup.second; 
-        s.type = HEALTHY;
-
-        block->push_back(s);
-      }
-      else { // suffix was less than 30pb long so we dont want it  
+      Suffix_t s;
+      s.offset = radixSA[i] - read_concat_tup.second;
+      if (reads->getReadByIndex(read_concat_tup.first, HEALTHY).size() - s.offset
+          <= reads->getMinSuffixSize()) { 
         continue;
       }
+      else{
+        s.read_id = read_concat_tup.first;
+        s.type = HEALTHY;
+        block->push_back(s);
+      }
+
+    //  if((radixSA[i] - read_concat_tup.second) <=
+    //      (reads->getReadByIndex(read_concat_tup.first, HEALTHY).size() - min_suf)) {
+    //    s.read_id = read_concat_tup.first;
+    //    s.offset = radixSA[i] - read_concat_tup.second; 
+    //    s.type = HEALTHY;
+
+    //    block->push_back(s);
+    //  }
+    //  else { // suffix was less than 30pb long so we dont want it  
+    //    continue;
+    //  }
 
     }
 
     else {                      // TUMOUR Can logic be simplified??
-
       pair<unsigned int, unsigned int > read_concat_tup = 
         binarySearch(*tumourBSA, radixSA[i]-startOfTumour);
 
-      if(((radixSA[i] - startOfTumour) - read_concat_tup.second) <=
-          (reads->getReadByIndex(read_concat_tup.first, TUMOUR).size() - min_suf)) {
-        Suffix_t s;
-        s.read_id = read_concat_tup.first;
-        s.offset = (radixSA[i] - startOfTumour) - read_concat_tup.second; 
-        s.type = TUMOUR;
-
-        block->push_back(s);
-      }
-      else { // suffix was less than 30pb long so we dont want it  
+      Suffix_t s;
+      s.offset = (radixSA[i] - startOfTumour) - read_concat_tup.second;
+      if (reads->getReadByIndex(read_concat_tup.first, TUMOUR).size() - s.offset
+          <= reads->getMinSuffixSize()) { 
         continue;
       }
+      else{
+        s.read_id = read_concat_tup.first;
+        s.type = TUMOUR;
+        block->push_back(s);
+      }
+
+      //if(((radixSA[i] - startOfTumour) - read_concat_tup.second) <=
+      //    (reads->getReadByIndex(read_concat_tup.first, TUMOUR).size() - min_suf)) {
+      //  Suffix_t s;
+      //  s.read_id = read_concat_tup.first;
+      //  s.offset = (radixSA[i] - startOfTumour) - read_concat_tup.second; 
+      //  s.type = TUMOUR;
+
+      //  block->push_back(s);
+      //}
+      //else { // suffix was less than 30pb long so we dont want it  
+      //  continue;
+      //}
 
     }
   }
