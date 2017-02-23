@@ -43,7 +43,7 @@ SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
   cout << "Starting parallelGenRadixSA:" << endl;
 
   parallelGenRadixSA(min_suffix);
-//  printSuffixArray("/data/ic711/parallelGenRadixSA.txt");
+  printSuffixArray("/data/ic711/parallelGenRadixSA.txt");
   
 //  printReadsInGSA("/data/ic711/point2.txt");
 }
@@ -174,17 +174,17 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
         block->push_back(s);
       }
 
-    //  if((radixSA[i] - read_concat_tup.second) <=
-    //      (reads->getReadByIndex(read_concat_tup.first, HEALTHY).size() - min_suf)) {
-    //    s.read_id = read_concat_tup.first;
-    //    s.offset = radixSA[i] - read_concat_tup.second; 
-    //    s.type = HEALTHY;
-
-    //    block->push_back(s);
-    //  }
-    //  else { // suffix was less than 30pb long so we dont want it  
-    //    continue;
-    //  }
+//      if((radixSA[i] - read_concat_tup.second) <=
+//          (reads->getReadByIndex(read_concat_tup.first, HEALTHY).size() - min_suf)) {
+//        s.read_id = read_concat_tup.first;
+//        s.offset = radixSA[i] - read_concat_tup.second; 
+//        s.type = HEALTHY;
+//
+//        block->push_back(s);
+//      }
+//      else { // suffix was less than 30pb long so we dont want it  
+//        continue;
+//      }
 
     }
 
@@ -217,9 +217,8 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
     //    continue;
     //  }
 
-    //}
+    }
   }
-
 }
 
 void SuffixArray::buildBinarySearchArrays(
