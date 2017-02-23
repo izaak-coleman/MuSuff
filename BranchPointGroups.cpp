@@ -27,7 +27,7 @@ using namespace std;
 static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
-static const int CTR = 1;
+static const int CTR = 4;
 
 
 BranchPointGroups::BranchPointGroups(SuffixArray &_SA, 
@@ -40,7 +40,7 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   // Generate branchpoint groups
   cout << "Extracting cancer-specific reads..." << endl;
   extractCancerSpecificReads(); 
-  outputExtractedCancerReads("/data/ic711/point3.txt");
+//  outputExtractedCancerReads("/data/ic711/point3.txt");
   cout << "No of extracted reads: " << CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
@@ -114,159 +114,159 @@ void BranchPointGroups::extractCancerSpecificReads() {
   }
 }
 
-void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int to) {
-  set<unsigned int> threadExtr;
-  unsigned int extension {seed_index + 1};
-
-
-  while (seed_index < to && seed_index != SA->getSize() - 1) {   // CONFIRM EFFECT OF THIS
-    double c_reads{0}, h_reads{0};    // reset counts
-
-    // Assuming that a > 2 group will form, start counting from seed_index
-    if (SA->getElem(seed_index).type == HEALTHY) h_reads++;
-    else c_reads++;
-
-    {
-    std::lock_guard<std::mutex> lock(cout_lock);
-    if (seed_index >= SA->getSize() || extension >= SA->getSize()) {
-      if(seed_index == SA->getSize() -1) {
-        cout << "OUT OF BOUNDS!!!" << endl;
-      }
-    }
-    }
-
-    while (::computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads)
-        >= reads->getMinSuffixSize()) {
-      // tally tissue types of group
-      if(SA->getElem(extension).type == HEALTHY) h_reads++;
-      else c_reads++;
-      extension++;
-      if (extension == SA->getSize()) break;    // bound check GSA
-    }
-
-    // Group size == 1 and group sizes of 1 permitted and groups is cancer read
-    if (extension - seed_index == 1 && CTR == 1 && SA->getElem(seed_index).type == TUMOUR) {
-      std::pair<std::set<unsigned int>::iterator, bool> success = threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
-      if (success.second) {
-        std::lock_guard<std::mutex> cout_guard(cout_lock);
-        cout << "U: " << reads->returnSuffix(SA->getElem(seed_index)) << endl;
-      }
-    }
-    else { 
-      // Group size > 1. Need to compute econt and check CTR to determine
-      // extraction.
-      if ((h_reads / c_reads) <= econt && c_reads >= CTR) {
-        std::lock_guard<std::mutex> cout_guard(cout_lock);
-        for (unsigned int i = seed_index; i < extension; i++) {
-          if (SA->getElem(i).type == TUMOUR) {
-            threadExtr.insert(SA->getElem(i).read_id);
-            {
-              cout << reads->returnSuffix(SA->getElem(i)) << endl;
-            }
-          }
-        }
-      }
-    }
-    seed_index = extension++; 
-  }
-
-  // On very rare cases, the very last value in the GSA is unique. 
-  // In such a case, this value will not have been analysed 
-  // by the loop. In these cases, seed_index == SA.size()-1, rather
-  // than SA.size() - which is the case if the extension proceeds to the
-  // end.  Therefore, if the case condition is true, we need to check
-  // it separately.
-  if (seed_index == SA->getSize() -1) {
-    if (CTR == 1 && SA->getElem(seed_index).type == TUMOUR) {
-      threadExtr.insert(SA->getElem(seed_index).read_id);
-    }
-  }
-
-  // Load to CancerExtraction, avoiding thread interference
-  std::lock_guard<std::mutex> lock(cancer_extraction_lock);
-  for(unsigned int extracted_cancer_read : threadExtr) {
-      CancerExtraction.insert(extracted_cancer_read);
-  }
-}
-
-
-
-//void BranchPointGroups::extractionWorker(unsigned int seed_index, 
-//                                                        unsigned int to) {
-//
-//  set<unsigned int> localThreadExtraction;
-//  double cancer_sequences = 0, healthy_sequences = 0;
-//  unsigned int extension;
+//void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int to) {
+//  set<unsigned int> threadExtr;
+//  unsigned int extension {seed_index + 1};
 //
 //
-//  while (seed_index < to-1) {
-//   
-//    // Calc econt of suffixes sharing same genomic location (assumption: 
-//    // LCP >= 30). If econt below user specified value, extract group
-//    if(::computeLCP(SA->getElem(seed_index),
-//                                  SA->getElem(seed_index+1), *reads) >= 30) {
+//  while (seed_index < to && seed_index != SA->getSize() - 1) {   // CONFIRM EFFECT OF THIS
+//    double c_reads{0}, h_reads{0};    // reset counts
 //
-//      // tally up the tissue types of seed suffix
-//      if (SA->getElem(seed_index).type == HEALTHY) {
-//        healthy_sequences++;
-//      } else {  // TUMOUR
-//        cancer_sequences++;
+//    // Assuming that a > 2 group will form, start counting from seed_index
+//    if (SA->getElem(seed_index).type == HEALTHY) h_reads++;
+//    else c_reads++;
+//
+//    {
+//    std::lock_guard<std::mutex> lock(cout_lock);
+//    if (seed_index >= SA->getSize() || extension >= SA->getSize()) {
+//      if(seed_index == SA->getSize() -1) {
+//        cout << "OUT OF BOUNDS!!!" << endl;
 //      }
+//    }
+//    }
 //
-//      extension = seed_index+1;
-//      while ((::computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads) >= 30)
-//            ) {
+//    while (::computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads)
+//        >= reads->getMinSuffixSize()) {
+//      // tally tissue types of group
+//      if(SA->getElem(extension).type == HEALTHY) h_reads++;
+//      else c_reads++;
+//      extension++;
+//      if (extension == SA->getSize()) break;    // bound check GSA
+//    }
 //
-//        if (SA->getElem(extension).type == HEALTHY) {
-//          healthy_sequences++;
-//        } else { // TUMOUR 
-//          cancer_sequences++;
-//        }
-//        extension++;
-//        if(extension == SA->getSize()) {break;}
+//    // Group size == 1 and group sizes of 1 permitted and groups is cancer read
+//    if (extension - seed_index == 1 && CTR == 1 && SA->getElem(seed_index).type == TUMOUR) {
+//      std::pair<std::set<unsigned int>::iterator, bool> success = threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
+//      if (success.second) {
+//        std::lock_guard<std::mutex> cout_guard(cout_lock);
+//        cout << "U: " << reads->returnSuffix(SA->getElem(seed_index)) << endl;
 //      }
-//
-//      // check below econt
-//      if (cancer_sequences >= CTR  && 
-//         ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
+//    }
+//    else { 
+//      // Group size > 1. Need to compute econt and check CTR to determine
+//      // extraction.
+//      if ((h_reads / c_reads) <= econt && c_reads >= CTR) {
+//        std::lock_guard<std::mutex> cout_guard(cout_lock);
 //        for (unsigned int i = seed_index; i < extension; i++) {
-//          if(SA->getElem(i).type == TUMOUR) {     // only extr. cancer reads
-//            localThreadExtraction.insert(SA->getElem(i).read_id);
+//          if (SA->getElem(i).type == TUMOUR) {
+//            threadExtr.insert(SA->getElem(i).read_id);
 //            {
-//              std::lock_guard<std::mutex> cout_guard(cout_lock);
 //              cout << reads->returnSuffix(SA->getElem(i)) << endl;
 //            }
 //          }
 //        }
 //      }
-//      seed_index = extension; // jump scan to end of group
 //    }
+//    seed_index = extension++; 
+//  }
 //
-//    else { // if CTR == 1 {
-//      // In this case, there is no > 2 group of reads containing 
-//      // this 30bp stretch of DNA. However, the read is still unique
-//      // it could be unique due to a mutation, and a group could not
-//      // form due to MTT, mutation distribution or low coverage 
-//      // therefore, if it is a cancer read, extract it
-//      //if (SA->getElem(seed_index).type == TUMOUR) {
-//      //  localThreadExtraction.insert(seed_index);
-//      //}
-//      seed_index++;
+//  // On very rare cases, the very last value in the GSA is unique. 
+//  // In such a case, this value will not have been analysed 
+//  // by the loop. In these cases, seed_index == SA.size()-1, rather
+//  // than SA.size() - which is the case if the extension proceeds to the
+//  // end.  Therefore, if the case condition is true, we need to check
+//  // it separately.
+//  if (seed_index == SA->getSize() -1) {
+//    if (CTR == 1 && SA->getElem(seed_index).type == TUMOUR) {
+//      threadExtr.insert(SA->getElem(seed_index).read_id);
 //    }
+//  }
 //
-//    healthy_sequences = 0; 
-//    cancer_sequences = 0; 
-//
-//  }//end while
-//
-//  // After extraction, threads need to load their data into global CancerExtractionSet
-//
-//
-//  std::lock_guard<std::mutex> lock(cancer_extraction_lock); // avoid thread interference
-//  for(unsigned int read_with_mutation : localThreadExtraction) {
-//      CancerExtraction.insert(read_with_mutation);
-//    }
+//  // Load to CancerExtraction, avoiding thread interference
+//  std::lock_guard<std::mutex> lock(cancer_extraction_lock);
+//  for(unsigned int extracted_cancer_read : threadExtr) {
+//      CancerExtraction.insert(extracted_cancer_read);
+//  }
 //}
+
+
+
+void BranchPointGroups::extractionWorker(unsigned int seed_index, 
+                                                        unsigned int to) {
+
+  set<unsigned int> localThreadExtraction;
+  double cancer_sequences = 0, healthy_sequences = 0;
+  unsigned int extension;
+
+
+  while (seed_index < to-1) {
+   
+    // Calc econt of suffixes sharing same genomic location (assumption: 
+    // LCP >= 30). If econt below user specified value, extract group
+    if(::computeLCP(SA->getElem(seed_index),
+                                  SA->getElem(seed_index+1), *reads) >= 30) {
+
+      // tally up the tissue types of seed suffix
+      if (SA->getElem(seed_index).type == HEALTHY) {
+        healthy_sequences++;
+      } else {  // TUMOUR
+        cancer_sequences++;
+      }
+
+      extension = seed_index+1;
+      while ((::computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads) >= 30)
+            ) {
+
+        if (SA->getElem(extension).type == HEALTHY) {
+          healthy_sequences++;
+        } else { // TUMOUR 
+          cancer_sequences++;
+        }
+        extension++;
+        if(extension == SA->getSize()) {break;}
+      }
+
+      // check below econt
+      if (cancer_sequences >= CTR  && 
+         ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
+        for (unsigned int i = seed_index; i < extension; i++) {
+          if(SA->getElem(i).type == TUMOUR) {     // only extr. cancer reads
+            localThreadExtraction.insert(SA->getElem(i).read_id);
+            //{
+            //  std::lock_guard<std::mutex> cout_guard(cout_lock);
+            //  cout << reads->returnSuffix(SA->getElem(i)) << endl;
+            //}
+          }
+        }
+      }
+      seed_index = extension; // jump scan to end of group
+    }
+
+    else { // if CTR == 1 {
+      // In this case, there is no > 2 group of reads containing 
+      // this 30bp stretch of DNA. However, the read is still unique
+      // it could be unique due to a mutation, and a group could not
+      // form due to MTT, mutation distribution or low coverage 
+      // therefore, if it is a cancer read, extract it
+      //if (SA->getElem(seed_index).type == TUMOUR) {
+      //  localThreadExtraction.insert(seed_index);
+      //}
+      seed_index++;
+    }
+
+    healthy_sequences = 0; 
+    cancer_sequences = 0; 
+
+  }//end while
+
+  // After extraction, threads need to load their data into global CancerExtractionSet
+
+
+  std::lock_guard<std::mutex> lock(cancer_extraction_lock); // avoid thread interference
+  for(unsigned int read_with_mutation : localThreadExtraction) {
+      CancerExtraction.insert(read_with_mutation);
+    }
+}
 
 void BranchPointGroups::seedBreakPointBlocks() {
 

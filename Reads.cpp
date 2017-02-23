@@ -56,7 +56,7 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
     }
   }
 
-  printRemainingReads("/data/ic711/point1.txt");
+//  printRemainingReads("/data/ic711/point1.txt");
   cout << "End of ReadsManipulator constructor " << endl;
 }
 
