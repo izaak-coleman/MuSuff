@@ -151,7 +151,7 @@ private:
   long long int binarySearch(std::string query);
   // Function performs a string search for query in SA.
   // The function performs this search with, in practice
-  // O(n + log m) comparisons, rather than O(n * log m)
+  // O(n + log m) comparisons, rather than O(n log m)
   // by avoiding redundant lex comparisons
 
   long long int backUpToFirstMatch(long long int bs_hit, std::string query);

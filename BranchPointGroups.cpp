@@ -289,7 +289,6 @@ void BranchPointGroups::seedBreakPointBlocks() {
     concat += reads->getReadByIndex(*it, TUMOUR);
     concat += reverseComplementString(reads->getReadByIndex(*it, TUMOUR)) + "$";
     // add bsa values
-    cout << "Seg fault after here" << endl;
     concat_idx += reads->getReadByIndex(*std::prev(it), TUMOUR).size() * 2;
     pair<unsigned int, unsigned int> read_concat_pair (*it, concat_idx);
     binary_search_array.push_back(read_concat_pair);
@@ -758,7 +757,6 @@ void BranchPointGroups::extractNonMutatedAlleles() {
 
     long long int fwd_index = binarySearch(read);
     long long int rev_index = binarySearch(rev_read);
-    cout << "Reached extractNonMutatedAlleles" << endl;
 
     if (fwd_index != -1) {
       extendBlock(fwd_index, block.block, tag.orientation);
@@ -1066,21 +1064,14 @@ void BranchPointGroups::getSuffixesFromRight(int seed_index,
   }
 }
 
-int BranchPointGroups::lcp(string l, string r, unsigned int mlr) {
-  while (l[mlr] == r[mlr]) {
-    mlr++;
-  }
-  return mlr;
-}
 
 int BranchPointGroups::minVal(int a, int b) {
-  if (a > b) {
-    return b;
-  }
-  return a;
+  return (a > b) ? b : a;
 }
 
 bool BranchPointGroups::lexCompare(string l, string r, unsigned int min_lr) {
+  // return true if l < r
+
   // Generate pointers to lhs and rhs suffixes in reads
 
   // * min_lr avoids redundant searches droping bound to, in practice
@@ -1103,76 +1094,59 @@ bool BranchPointGroups::lexCompare(string l, string r, unsigned int min_lr) {
 }
 
 long long int BranchPointGroups::binarySearch(string query) {
-  // binary search bound pointers
-  unsigned int right = SA->getSize();
-  unsigned int left  = 0;
+  // Search bounds
+  unsigned int right{SA->getSize() - 1};   // start at non-out of bounds
+  unsigned int left{0};
   unsigned int mid;
 
-  // lcp bound pointers
+  // prefix lengths with query
   unsigned int min_left_right;
   unsigned int lcp_left_query;
   unsigned int lcp_right_query;
 
-  cout << "Left: " << left << endl;
-  cout << "Right: " << right << endl; 
-
-  // find left and right lcps before loop
+  // find minimum prefix length of left and right bounds with query
   lcp_left_query = lcp(reads->returnSuffix(SA->getElem(left)), query, 0);
-
-  // SHOULD THIS NOT BE RIGHT -1??????
-  // THIS BUG HAS BEEN HERE ALL ALONG!!
   lcp_right_query = lcp(reads->returnSuffix(SA->getElem(right)), query, 0);
+  min_left_right = minVal(lcp_left_query, lcp_right_query);
 
-  // get the min
-  min_left_right = min(lcp_left_query, lcp_right_query);
-
-  // only when both right and left pointers have shifted, do 
-  // we need to recalculate the right and left lcp with query
-  bool right_shift = false, left_shift = false;
-  
-  while(left <  right) {
-
-    mid = left + ((right - left) / 2);
-
-    if(lcp(reads->returnSuffix(SA->getElem(mid)), query, 
-                               min_left_right) == query.size()) {
-      // then we have covered query, by 30bp, and so the suffix is in the
-      // correct genomic location
+  while (left <= right) {
+    bool left_shift{false};
+    mid = (left + right) / 2;
+    if(lcp(reads->returnSuffix(SA->getElem(mid)), query,  min_left_right) == query.size()) {
+      // 30bp stretch covered. Arrived at genomic location. Return.
       return mid; // backUpToFirstMatch(mid, query);
     }
-
-    if(lexCompare(reads->returnSuffix(SA->getElem(mid)), 
-                                      query, min_left_right)) {
-
-      // then query is lower, so move left bound down
+    if(lexCompare(reads->returnSuffix(SA->getElem(mid)), query, min_left_right)) {
+      // then query lexicographically lower (indexed > mid) (higher ranked
+      // characters) so move left bound towards right
       left = mid+1;
       left_shift = true;
     }
-
     else {
-      // then query is higher, so move right bound up
-
+      // then query is  lexicographically higher (indexed < mid due to lower
+      // ranking characters) than mid. Therefore, need to move right bound
+      // towards left
       right = mid;
-      right_shift = true;
     }
-
-
-
-    if (right_shift && left_shift) {
-      // all chars from [0] to min_left_right must already be identical
-      // so dont check
-      lcp_left_query = lcp(reads->returnSuffix(SA->getElem(left)), 
-                           query, min_left_right);
-
-      lcp_right_query = lcp(reads->returnSuffix(SA->getElem(right)), 
-                            query, min_left_right);
-
-      min_left_right = minVal(lcp_left_query, lcp_right_query);
+    // only recompute the moved bound
+    if (left_shift) {
+      lcp_left_query  = lcp(reads->returnSuffix(SA->getElem(left)), query, min_left_right);
     }
+    else {  // must be right_shift
+      lcp_right_query = lcp(reads->returnSuffix(SA->getElem(right)), query, min_left_right);
+    }
+    min_left_right = minVal(lcp_left_query, lcp_right_query);
   }
 
+  return -1; // no match
+}
 
-  return -1;                        // no match
+int BranchPointGroups::lcp(string l, string r, unsigned int mlr) {
+  while (l[mlr] == r[mlr]) {
+    mlr++;
+
+  }
+  return mlr;
 }
 
 long long int BranchPointGroups::backUpToFirstMatch(long long int bs_hit, string query) {
