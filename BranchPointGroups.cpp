@@ -19,6 +19,7 @@
 #include "BranchPointGroups.h"
 #include "SuffixArray.h"
 #include "Suffix_t.h"
+#include "GenomeMapper.h"
 
 #include "benchmark.h"
 
@@ -127,15 +128,6 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
     if (SA->getElem(seed_index).type == HEALTHY) h_reads++;
     else c_reads++;
 
-    {
-      std::lock_guard<std::mutex> lock(cout_lock);
-      if (seed_index >= SA->getSize() || extension >= SA->getSize()) {
-        if(seed_index == SA->getSize() -1) {
-          cout << "OUT OF BOUNDS!!!" << endl;
-        }
-      }
-    }
-
     while (::computeLCP(SA->getElem(seed_index), SA->getElem(extension), *reads)
         >= reads->getMinSuffixSize()) {
       // tally tissue types of group
@@ -147,18 +139,12 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
 
     // Group size == 1 and group sizes of 1 permitted and groups is cancer read
     if (extension - seed_index == 1 && CTR_GSA1  == 1 && SA->getElem(seed_index).type == TUMOUR) {
-      std::pair<std::set<unsigned int>::iterator, bool> success = threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
-      if (success.second) {
-        std::lock_guard<std::mutex> cout_guard(cout_lock);
-        cout << "U: " << reads->returnSuffix(SA->getElem(seed_index)) << endl;
-      }
+      threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
     }
-    else if ((h_reads / c_reads) <= econt && c_reads >= CTR_GSA1) {
-      std::lock_guard<std::mutex> cout_guard(cout_lock);
+    else if (c_reads >= CTR_GSA1 && (h_reads / c_reads) <= econt)  {
       for (unsigned int i = seed_index; i < extension; i++) {
         if (SA->getElem(i).type == TUMOUR) {
           threadExtr.insert(SA->getElem(i).read_id);
-          cout << reads->returnSuffix(SA->getElem(i)) << endl;
         }
       }
     }
@@ -185,8 +171,8 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
 }
 
 
-//Old version, does not correctly take into account CTR, and 
-// also suffers from rare case bug
+////Old version, does not correctly take into account CTR, and 
+//// also suffers from rare case bug
 //void BranchPointGroups::extractionWorker(unsigned int seed_index, 
 //                                                        unsigned int to) {
 //
@@ -279,9 +265,6 @@ void BranchPointGroups::seedBreakPointBlocks() {
   ) + "$";
 
   cout << "Cancer Extraction size: " <<  CancerExtraction.size() << endl;
-  for (unsigned int idx : CancerExtraction) {
-    cout << idx << endl;
-  }
   unsigned int concat_idx = 0;
   it++;
   for (; it != CancerExtraction.end(); it++) {
@@ -496,7 +479,7 @@ char BranchPointGroups::revCompCharacter(char ch, bool rc) {
 //
 //    if (seed_index == gsa.size() - 1 && CTR_GSA2 == 1) {
 //      bp_block block;
-//      block.block.insert(seed_index);
+//      block.block.insert(gsa[seed_index]);
 //      block.id = block_id;
 //      BreakPointBlocks.push_back(block);
 //    }
@@ -762,25 +745,25 @@ void BranchPointGroups::extractNonMutatedAlleles() {
       extendBlock(fwd_index, block.block, tag.orientation);
     }
     else {
-      std::cout << "Search failed" << std::endl;
+      //std::cout << "Search failed" << std::endl;
     }
 
     if (rev_index != -1) {
       extendBlock(rev_index, block.block, !tag.orientation);
     }
     else {
-      std::cout << "Search failed" << std::endl;
+      //std::cout << "Search failed" << std::endl;
     }
   }
 }
 
-string BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
-    int &cns_offset, bool tissue_type, unsigned int &pair_id,
-    vector< vector<int> > &align_counter) {
+bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
+    int &cns_offset, bool tissue_type, unsigned int &pair_id, 
+    string & cns, string & qual) {
   // all seqs get converted to RIGHT orientation, before consensus
 
   if (BreakPointBlocks[block_idx].size() > COVERAGE_UPPER_THRESHOLD) {
-    return "\0";
+    return true;
   } 
 
 
@@ -799,7 +782,7 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   pair_id = BreakPointBlocks[block_idx].id;
 
   if(type_subset.size() == 0) {   // no seq. of tissue type, cannot be mapped
-    return "\0";
+    return true;
   }
 
   // perform offset conversion, converting LEFT offsets to RIGHT
@@ -827,8 +810,10 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     min_offset = 0;
   }
 
-  // initialize align_counter.
+  // decl alignment block
   vector<string> aligned_block;
+  // initialize align_counter.
+  vector< vector<int> > align_counter;
   for (int n_vectors=0; n_vectors < 4; n_vectors++) {
     vector<int> v(max_offset + 80 - min_offset, 0);
     align_counter.push_back(v);
@@ -874,7 +859,7 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   }
 
 
-  string cns = ""; // seed empty consensus sequence
+  cns = ""; // seed empty consensus sequence
 
   int n_skipped_start_pos=0;
   bool hit_consensus_min = false;
@@ -924,18 +909,25 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
         break;
     }
   }// end for
+  
+  // if empty string, return that we need to skip block
+  if (cns == "") return true;
 
-  // DEBUG
-  //std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
-  //  std::endl;
-  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  //for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
-  //  cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
-  //       << ((type_subset[i].tissue_type % 2) ? ", H" : 
-  //           ((type_subset[i].tissue_type == SWITCHED) ? ", S" : ", T")) << endl;
-  //}
-  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  //cout << cns << endl << endl;
+
+  //// DEBUG
+  std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
+  std::endl;
+  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
+    cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
+         << ((type_subset[i].tissue_type % 2) ? ", H" : 
+             ((type_subset[i].tissue_type == SWITCHED) ? ", S" : ", T")) << endl;
+  }
+  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  cout << cns << endl << endl;
+  cout << "QSTRING" << endl;
+  cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
+
 
   //for(vector<int> v : align_counter) {
   //  for(int i : v) {
@@ -946,16 +938,84 @@ string BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   //cout << endl;
   
 
-  // pass out the offset value
+  // set the offset value
   cns_offset = (max_offset - n_skipped_start_pos);
-  //cout << " max offset " << max_offset << endl;
 
-  return cns;
+  // set the quality string
+  qual = buildQualityString(align_counter, cns, tissue_type);
+  return false;
+}
+
+string BranchPointGroups::buildQualityString(vector< vector<int> > const& freq_matrix,
+    string const& cns, bool tissue) {
+  // Function steps through each position of the string and
+  // determines whether a position should be masked if:
+  //  -- Cancer: if the number of bases contributing to the 
+  //             consensus base is < CTR then mask. Or, if the 
+  //             number of bases with frequency above the error threshold
+  //             (ALLELIC_ERROR_THRESH) is > 1 then mask.
+  //  -- Health: if the number of bases with frequency above the error threshold
+  //             (ALLELIC_ERROR_THRESH) is > 1 then mask.
+  
+  string q_str("");
+  int m_start{0};
+  for (int i=0; i < freq_matrix[0].size(); i++) {
+    if (freq_matrix[0][i] != -1) {
+      m_start = i;
+      break;
+    }
+  }
+
+  for (int pos=0; pos < cns.size(); pos++) {
+    // As a common masking condition of both healthy and cancer cns',
+    // determine the number of bases above the error frequency
+    // by the calulation:
+    //      bases / total bases = freq.
+    // bases is equivalent to the number of reads with a base of type given
+    // base. 
+
+    double total_bases = 0;                     // get total_bases
+    for (int base=0; base < 4; base++) {
+      total_bases += freq_matrix[base][pos + m_start];
+    }
+    int n_bases_above_err_freq{0};
+    for(int base=0; base < 4; base++) {
+      if((freq_matrix[base][pos + m_start] / total_bases) > ALLELIC_FREQ_OF_ERROR) {
+        n_bases_above_err_freq++;
+      }
+    }
+    if (n_bases_above_err_freq > 1) { // then mask
+      q_str += "L";
+      continue;
+    }
+
+
+    // Unique masking logic to cancer reads
+    // The supporting evidence for the chosen consensus
+    // position must be above 4
+    if (tissue == TUMOUR) {
+      int base{0};
+      switch (cns[pos]) {
+        case 'A': base = 0; break;
+        case 'T': base = 1; break;
+        case 'C': base = 2; break;
+        case 'G': base = 3; break;
+      }
+      if (freq_matrix[base][pos + m_start] < CTR_GSA2) {
+        q_str += "M";
+        continue;
+      }
+    }
+
+    q_str += "-";
+  }
+  return q_str;
 }
 
 
 string BranchPointGroups::addGaps(int n_gaps) {
   string gaps = "";
+
   for(int i=0; i < n_gaps; i++) {
     gaps += "-";
   }
@@ -1126,8 +1186,9 @@ long long int BranchPointGroups::binarySearch(string query) {
       // then query is  lexicographically higher (indexed < mid due to lower
       // ranking characters) than mid. Therefore, need to move right bound
       // towards left
-      right = mid;
+       right = mid-1;
     }
+
     // only recompute the moved bound
     if (left_shift) {
       lcp_left_query  = lcp(reads->returnSuffix(SA->getElem(left)), query, min_left_right);

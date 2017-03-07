@@ -43,7 +43,7 @@ SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
   cout << "Starting parallelGenRadixSA:" << endl;
 
   parallelGenRadixSA(min_suffix);
-  printSuffixArray("/data/ic711/parallelGenRadixSA.txt");
+//  printSuffixArray("/data/ic711/parallelGenRadixSA.txt");
   
 //  printReadsInGSA("/data/ic711/point2.txt");
 }
@@ -693,6 +693,10 @@ void SuffixArray::printSuffixes() {
 }
 
 Suffix_t & SuffixArray::getElem(int index) {
+  if (index >= SA.size() || index < 0) {
+    cout << "getElem() out of bounds" << endl;
+    exit(1);
+  }
   return SA[index];
 }
 

@@ -7,6 +7,7 @@
 
 #include "BranchPointGroups.h"
 #include "Reads.h"
+static const double ALLELIC_FREQ_OF_ERROR = 0.1;
 
 struct snv_aln_info {
  std::vector<int> SNV_pos;
@@ -39,6 +40,8 @@ private:
   struct consensus_pair {
     std::string mutated;
     std::string non_mutated;
+    std::string mqual;
+    std::string nqual;
     std::string read_freq_m;
     std::string read_freq_nm;
     unsigned int pair_id;
@@ -101,6 +104,8 @@ private:
   // more than two bases have a frequency over ALLELIC_FREQ_OF_ERROR,
   // then the position is "masked" by writing the 
   // cancer cns position to the healthy cns position
+
+  void maskLowQualityPositions(consensus_pair & pair, bool &low_quality);
 
 
   void parseSamFile(std::vector<snv_aln_info> &alignments, std::string filename);

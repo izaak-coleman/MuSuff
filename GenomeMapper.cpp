@@ -26,7 +26,6 @@ static const int SSV = 2;
 static const int LSV = 3;
 static const int MUT_CNS = 1;
 
-static const double ALLELIC_FREQ_OF_ERROR = 0.1;
 static const int MAX_LOW_CONF_POSITIONS = 3;
 
 
@@ -81,20 +80,16 @@ void GenomeMapper::buildConsensusPairs() {
   consensus_pairs.reserve(BPG->getSize()); // make room
   int continued{0};
   for (int i=0; i < BPG->getSize(); ++i) {
-
-    vector< vector<int> > tumour_base_frequency, healthy_base_frequency;
     consensus_pair pair;
     pair.left_ohang = pair.right_ohang = 0;   // default to no overhang
 
-    pair.mutated = BPG->generateConsensusSequence(i,
-      pair.mut_offset, TUMOUR, pair.pair_id, tumour_base_frequency);
-
-    pair.non_mutated = BPG->generateConsensusSequence(i,
-        pair.nmut_offset, HEALTHY, pair.pair_id, healthy_base_frequency);
+    bool skip_mutated{false}, skip_non_mutated{false};
+    skip_mutated = BPG->generateConsensusSequence(i, pair.mut_offset, TUMOUR, pair.pair_id, pair.mutated, pair.mqual);
+    skip_non_mutated = BPG->generateConsensusSequence(i, pair.nmut_offset, HEALTHY, pair.pair_id, pair.non_mutated, pair.nqual);
 
     // discard sequences that do not contain both a non-mutated
     // and mutated cns pair
-    if(pair.mutated == "\0" || pair.non_mutated == "\0") {
+    if(skip_mutated == true  || skip_non_mutated == true) {
       continued++;
       continue;
     }
@@ -103,129 +98,194 @@ void GenomeMapper::buildConsensusPairs() {
 
     //// TURN OFF MASK
     bool low_quality_block = false;
-    maskLowConfidencePositions(pair, healthy_base_frequency, 
-        tumour_base_frequency, low_quality_block);
-
+    maskLowQualityPositions(pair, low_quality_block);
     if (low_quality_block) {
       continue;
     }
+    cout << "Cancer: " << endl;
+    cout << pair.mutated << endl
+         << pair.mqual << endl;
+    cout << "Healthy: " << endl;
+    cout << pair.non_mutated << endl
+         << pair.nqual << endl;
     consensus_pairs.push_back(pair);
   }
   cout << "Skipped " << continued << endl;
   consensus_pairs.shrink_to_fit();
 }
 
-void GenomeMapper::maskLowConfidencePositions(consensus_pair &pair,
-                                vector< vector<int> > &healthy_base_freq,
-                                vector< vector<int> > &tumour_base_freq,
-                                bool &discard) {
-  discard = false;
-  unsigned int start_h= 0, start_t= 0;
-
-  for(int i=0; i < healthy_base_freq[0].size(); i++) {
-    if(healthy_base_freq[0][i] != -1) {
-      start_h = i;
-      break;
-    }
-  }
-  for(int i=0; i < tumour_base_freq[0].size(); i++) {
-    if(tumour_base_freq[0][i] != -1) {
-      start_t = i;
-      break;
+void GenomeMapper::maskLowQualityPositions(consensus_pair & pair, bool &low_quality) {
+  int num_low_quality_positions{0};
+  for (int pos=0; pos < pair.mutated.size(); pos++) {
+    if (pair.mqual[pos] != '-' || pair.nqual[pos + pair.left_ohang] != '-') {
+        pair.mutated[pos] = pair.non_mutated[pos + pair.left_ohang];
+        num_low_quality_positions++;
     }
   }
 
-  // mask based on tumour cns
-  for(int pos = start_t; pos < pair.mutated.size() + start_t; pos++) {
-    int n_tumour_bases_above_err_freq = 0;
-
-    if(tumour_base_freq[0][pos] == -1) {
-      break;
-    }
-
-    // get total reads
-    double total_reads = 0;
-    for(int base=0; base < 4; base++) {
-      total_reads += tumour_base_freq[base][pos];
-    }
-
-    // calc number of bases over the error frequency
-    for(int base=0; base < 4; base++) {
-      if(tumour_base_freq[base][pos] / total_reads > ALLELIC_FREQ_OF_ERROR) {
-        n_tumour_bases_above_err_freq++;
-      }
-    }
-
-    // if the number of bases with a high allelic frequency is above
-    // one, then the position is of low condifence, so mask
-    if (n_tumour_bases_above_err_freq > 1) {
-      pair.mutated[pos - start_t] = pair.non_mutated[pos - start_t + pair.left_ohang];
-    }
-  }
-
-  int number_of_low_conf_positions = 0; 
-  // mask based on healthy cns
-  for(int pos = start_h + pair.left_ohang; pos < pair.mutated.size() +
-      start_h + pair.left_ohang; pos++) {
-
-    int n_healthy_bases_above_err_freq = 0;
-    if(healthy_base_freq[0][pos] == -1) {
-      break;
-    }
-
-    // get total reads
-    double total_reads = 0;
-    for(int base = 0; base < 4; base++) {
-      total_reads += healthy_base_freq[base][pos];
-    }
-
-    // cals number of bases over the error frequency
-    for(int base=0; base < 4; base++) {
-      if(healthy_base_freq[base][pos] / total_reads > ALLELIC_FREQ_OF_ERROR) {
-        n_healthy_bases_above_err_freq++;
-      }
-    }
-
-    // if n bases with high allelic freq. is above one, then 
-    // position is low confidence so mask
-    if(n_healthy_bases_above_err_freq > 1) {
-      pair.mutated[pos - pair.left_ohang - start_h] = pair.non_mutated[pos -
-        start_h];
-      number_of_low_conf_positions++;
-    }
-  }
-
-
-  // if there were too many low condidence positions, 
-  // the block is low quality, so discard
-  if(number_of_low_conf_positions > MAX_LOW_CONF_POSITIONS) {
-    discard = true;
-  }
-  cout << "number of low conf: " << number_of_low_conf_positions << endl;
+  if (num_low_quality_positions > MAX_LOW_CONF_POSITIONS) low_quality = true;
 }
 
+//void GenomeMapper::buildConsensusPairs() {
+//  // generate consensus pair for each breakpoint block
+//  // and then add starting gaps to align sequence pair
+//
+//  consensus_pairs.reserve(BPG->getSize()); // make room
+//  int continued{0};
+//  for (int i=0; i < BPG->getSize(); ++i) {
+//
+//    vector< vector<int> > tumour_base_frequency, healthy_base_frequency;
+//    consensus_pair pair;
+//    pair.left_ohang = pair.right_ohang = 0;   // default to no overhang
+//
+//    pair.mutated = BPG->generateConsensusSequence(i,
+//      pair.mut_offset, TUMOUR, pair.pair_id, tumour_base_frequency);
+//
+//    pair.non_mutated = BPG->generateConsensusSequence(i,
+//        pair.nmut_offset, HEALTHY, pair.pair_id, healthy_base_frequency);
+//
+//    // discard sequences that do not contain both a non-mutated
+//    // and mutated cns pair
+//    if(pair.mutated == "\0" || pair.non_mutated == "\0") {
+//      continued++;
+//      continue;
+//    }
+//
+//    trimCancerConsensus(pair);                // trim extra cancer sequence
+//
+//    //// TURN OFF MASK
 
-void GenomeMapper::trimCancerConsensus(consensus_pair &pair) {
-    // Trim portions of the cancer consensus sequence that are
-    // longer than heathy. Leave healthy if longer.
+//    bool low_quality_block = false;
 
-    if (pair.mut_offset > pair.nmut_offset) {
-      pair.mutated.erase(0, pair.mut_offset - pair.nmut_offset);
-    }
-    else if (pair.mut_offset < pair.nmut_offset) {
-      pair.left_ohang = pair.nmut_offset - pair.mut_offset;
-    }
+//    maskLowConfidencePositions(pair, healthy_base_frequency, 
+//        tumour_base_frequency, low_quality_block);
+//
+//    if (low_quality_block) {
+//      continue;
+//    }
+//    consensus_pairs.push_back(pair);
+//  }
+//  cout << "Skipped " << continued << endl;
+//  consensus_pairs.shrink_to_fit();
+//}
 
-    if (pair.mutated.size() > (pair.non_mutated.size() - pair.left_ohang)) {
-      int dist = pair.mutated.size() - (pair.non_mutated.size() -
-          pair.left_ohang);
-      pair.mutated.erase(pair.mutated.size() - dist, dist);
-    }
-    else if (pair.mutated.size() < (pair.non_mutated.size() - pair.left_ohang)) {
-      pair.right_ohang = 
-        (pair.non_mutated.size() - pair.left_ohang) - pair.mutated.size();
-    }
-    // else, equal length. Do nothing
+//void GenomeMapper::maskLowConfidencePositions(consensus_pair &pair,
+//                                vector< vector<int> > &healthy_base_freq,
+//                                vector< vector<int> > &tumour_base_freq,
+//                                bool &discard) {
+//  discard = false;
+//  unsigned int start_h= 0, start_t= 0;
+//
+//  // start points do not take into account the updated
+//  // matrix - which should have been cleaved
+//  for(int i=0; i < healthy_base_freq[0].size(); i++) {
+//    if(healthy_base_freq[0][i] != -1) {
+//      start_h = i; // + left_ohang
+//      break;    
+//    }
+//  }
+//  for(int i=0; i < tumour_base_freq[0].size(); i++) {
+//    if(tumour_base_freq[0][i] != -1) {
+//      start_t = i; // should be corrected based on -1 updated matrix
+//      break;
+//    }
+//  }
+//
+//  // mask based on tumour cns
+//  for(int pos = start_t; pos < pair.mutated.size() + start_t; pos++) {
+//    int n_tumour_bases_above_err_freq = 0;
+//
+//    if(tumour_base_freq[0][pos] == -1) {    // is this squared to the final base
+//      break;
+//    }
+//
+//    // get total reads
+//    double total_reads = 0;
+//    for(int base=0; base < 4; base++) {
+//      total_reads += tumour_base_freq[base][pos];
+//    }
+//
+//    // calc number of bases over the error frequency
+//    for(int base=0; base < 4; base++) {
+//      if(tumour_base_freq[base][pos] / total_reads > ALLELIC_FREQ_OF_ERROR) {
+//        n_tumour_bases_above_err_freq++;
+//      }
+//    }
+//
+//    // if the number of bases with a high allelic frequency is above
+//    // one, then the position is of low condifence, so mask
+//    if (n_tumour_bases_above_err_freq > 1) {
+//      pair.mutated[pos - start_t] = pair.non_mutated[pos - start_t + pair.left_ohang];
+//    }
+//  }
+//
+//  int number_of_low_conf_positions = 0; 
+//  // mask based on healthy cns
+//  for(int pos = start_h + pair.left_ohang; pos < pair.mutated.size() +
+//      start_h + pair.left_ohang; pos++) {
+//
+//    int n_healthy_bases_above_err_freq = 0;
+//    if(healthy_base_freq[0][pos] == -1) {
+//      break;
+//    }
+//
+//    // get total reads
+//    double total_reads = 0;
+//    for(int base = 0; base < 4; base++) {
+//      // am I not counting over the non-updated start position (should be 
+//      // pos + left_ohang, so i'm counting the cancer positions)
+//      total_reads += healthy_base_freq[base][pos];
+//    }                                                 
+//
+//    // cals number of bases over the error frequency
+//    for(int base=0; base < 4; base++) {
+//      if(healthy_base_freq[base][pos] / total_reads > ALLELIC_FREQ_OF_ERROR) {
+//        n_healthy_bases_above_err_freq++;
+//      }
+//    }
+//
+//    // if n bases with high allelic freq. is above one, then 
+//    // position is low confidence so mask
+//    if(n_healthy_bases_above_err_freq > 1) {
+//      pair.mutated[pos - pair.left_ohang - start_h] = pair.non_mutated[pos -
+//        start_h];
+//      number_of_low_conf_positions++;
+//    }
+//  }
+//
+//
+//  // if there were too many low condidence positions, 
+//  // the block is low quality, so discard
+//  if(number_of_low_conf_positions > MAX_LOW_CONF_POSITIONS) {
+//    discard = true;
+//  }
+//  cout << "number of low conf: " << number_of_low_conf_positions << endl;
+//}
+
+
+void GenomeMapper::trimCancerConsensus(consensus_pair & pair) {
+  // Trim portions of the cancer consensus sequence that are
+  // longer than heathy. Leave healthy if longer.
+
+  // left cleave
+  if (pair.mut_offset > pair.nmut_offset) {
+    pair.mutated.erase(0, pair.mut_offset - pair.nmut_offset);
+    pair.mqual.erase(0, pair.mut_offset - pair.nmut_offset);
+  }
+  else if (pair.mut_offset < pair.nmut_offset) {
+    pair.left_ohang = pair.nmut_offset - pair.mut_offset;
+  }
+
+  // right cleave
+  if (pair.mutated.size() > (pair.non_mutated.size() - pair.left_ohang)) {
+    int dist = pair.mutated.size() - (pair.non_mutated.size() - pair.left_ohang);
+    pair.mutated.erase(pair.mutated.size() - dist, dist);
+    pair.mqual.erase(pair.mutated.size() - dist, dist);
+  }
+  else if (pair.mutated.size() < (pair.non_mutated.size() - pair.left_ohang)) {
+    pair.right_ohang = (pair.non_mutated.size() - pair.left_ohang) - pair.mutated.size();
+  }
+  // else, equal length. Do nothing
 }
 
 

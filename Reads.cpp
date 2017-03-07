@@ -338,9 +338,18 @@ string::iterator ReadsManipulator::returnStartIterator(Suffix_t &suf) {
 
   string::iterator iter;
   if(suf.type == HEALTHY) { 
+
+    if (suf.read_id >= HealthyReads.size() || suf.read_id < 0) {
+      cout << "returnStartIterator() out of bounds " << endl;
+      exit(1);
+    }
     iter = HealthyReads[suf.read_id].begin() + suf.offset;
   }
   else {  // suf.type == TUMOUR
+    if (suf.read_id >= TumourReads.size() || suf.read_id < 0) {
+      cout << "returnStartIterator() out of bounds " << endl;
+      exit(1);
+    }
     iter = TumourReads[suf.read_id].begin() + suf.offset;
   }
 
@@ -353,9 +362,17 @@ string::iterator ReadsManipulator::returnEndIterator(Suffix_t &suf) {
 
   string::iterator iter;
   if (suf.type == HEALTHY) {
+    if (suf.read_id >= HealthyReads.size() || suf.read_id < 0) {
+      cout << "returnEndIterator() out of bounds " << endl;
+      exit(1);
+    }
     iter = HealthyReads[suf.read_id].end();
   }
   else {  // suf.type == TUMOUR
+    if (suf.read_id >= TumourReads.size() || suf.read_id < 0) {
+      cout << "returnEndIterator() out of bounds " << endl;
+      exit(1);
+    }
     iter = TumourReads[suf.read_id].end();
   }
 
@@ -365,9 +382,17 @@ string::iterator ReadsManipulator::returnEndIterator(Suffix_t &suf) {
 string ReadsManipulator::returnSuffix(Suffix_t &suf){
   // return the string assoc. with suf
   if (suf.type == HEALTHY) {
+    if (suf.read_id >= HealthyReads.size() || suf.read_id < 0) {
+      cout << "returnSuffix() out of bounds " << endl;
+      exit(1);
+    }
     return HealthyReads[suf.read_id].substr(suf.offset);
   }
   else { // suf.type == TUMOUR
+    if (suf.read_id >= TumourReads.size() || suf.read_id < 0) {
+      cout << "returnSuffix() out of bounds " << endl;
+      exit(1);
+    }
     return TumourReads[suf.read_id].substr(suf.offset);
   }
 }
@@ -383,9 +408,17 @@ unsigned int ReadsManipulator::getSize(bool tissueType) {
 
 string & ReadsManipulator::getReadByIndex(int index, int tissue) {
   if(tissue == HEALTHY) {
+    if (index >= HealthyReads.size() || index < 0) {
+      cout << "getReadByIndex() out of bounds" << endl;
+      exit(1);
+    }
     return HealthyReads[index];
   }
   else {  // tissue == TUMOUR || tissue == SWITCHED
+    if (index >= TumourReads.size() || index < 0) {
+      cout << "getReadsByIndex() out of bounds" << endl;
+      exit(1);
+    }
     return TumourReads[index];
   }
 }

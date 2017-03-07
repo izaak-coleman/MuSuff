@@ -177,7 +177,20 @@ private:
   // Output: BreakPointBlocks with loaded blocks
   // Details: Forms the groups of contiguous reads with LCP >= 30 
   // using seed and extension 
+
+  std::string buildQualityString(std::vector<std::vector<int> > const&
+      freq_matrix, std::string const& cns, bool tissue);
+  // Function steps through each position of the string and
+  // determines whether a position should be masked if:
+  //  -- Cancer: if the number of bases contributing to the 
+  //             consensus base is < CTR then mask. Or, if the 
+  //             number of bases with frequency above the error threshold
+  //             (ALLELIC_ERROR_THRESH) is > 1 then mask
+  //  -- Health: if the number of bases with frequency above the error threshold
+  //             (ALLELIC_ERROR_THRESH) is > 1 then mask
+
   int computeLCP(read_tag const& a, read_tag const& b);
+
   char revCompCharacter(char ch, bool rc);
   
 
@@ -202,9 +215,9 @@ public:
 
 
 
-  std::string generateConsensusSequence(unsigned int block_id, int &cns_offset, 
+  bool generateConsensusSequence(unsigned int block_id, int &cns_offset, 
       bool tissue_type, unsigned int &pair_id,
-      std::vector< std::vector<int> > &alignment_counter);
+      std::string &cns, std::string & qual);
   // This function performs pileup and returns the consensus sequence
   // for either the TUMOUR or HEALTHY sequence from the block indexed at 
   // block_id
