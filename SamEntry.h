@@ -1,130 +1,92 @@
 #ifndef SAMENTRY_H
 #define SAMENTRY_H
 
+#include <iostream>
 #include <vector>
 #include <string>
-
-#include "GenomeMapper.h"
-
-static const int NUM_BWA_FIELDS = 15;
-static const int REVERSE_FLAG = 16;
-static const int FORWARD_FLAG = 0;
-static const int SNV = 1;
-static const int SSV = 2;
-static const int LSV = 3;
-static const int MUT_CNS = 4;
-
-// sam compulsary indexes
-static const int MUT_CODE = 0;
-static const int FLAG = 1;
-static const int CHR = 2;
-static const int ALIGNMENT = 3;
-static const int MAPQ = 4;
-static const int CIGAR = 5;
-static const int INS_SIZE = 8;
-static const int AL_CNS = 9;
-static const int QSTRING = 10;
-static const int MISMATCHES = 18;
-
-
-// sam augmented (bwa uniques) indexes
-static const int NM = 0;
-static const int MD = 1;
-static const int AS = 2;
-static const int BC = 3;
-static const int X0 = 4;
-static const int X1 = 5;
-static const int XN = 6;
-static const int XM = 7;
-static const int XO = 8;
-static const int XG = 9;
-static const int XT = 10;
-static const int XA = 11;
-static const int XS = 12;
-static const int XF = 13;
-static const int XE = 14;
-
-// bwa field prefixes
-static const std::string PREFIX_NM = "NM";
-static const std::string PREFIX_MD = "MD";
-static const std::string PREFIX_AS = "AS";
-static const std::string PREFIX_BC = "BC";
-static const std::string PREFIX_X0 = "X0";
-static const std::string PREFIX_X1 = "X1";
-static const std::string PREFIX_XN = "XN";
-static const std::string PREFIX_XM = "XM";
-static const std::string PREFIX_XO = "XO";
-static const std::string PREFIX_XG = "XG";
-static const std::string PREFIX_XT = "XT";
-static const std::string PREFIX_XA = "XA";
-static const std::string PREFIX_XS = "XS";
-static const std::string PREFIX_XF = "XF";
-static const std::string PREFIX_XE = "XE";
+#include <map>
+#include <boost/any.hpp>
 
 class SamEntry {
-private:
-  bool failed_alignment; // this is true if the neither the alignment nor its
-                         // alternative alignments aligned to chr22
+  // Class takes a sam entry string from the file,
+  // and extracts the fields. 
+  // It also stores the information pertaining to the number
+  // mutations idenified in the particular sam entry
 
-  // whole record
-  std::string record;
-  // sam mandatory fields
-  int flag;
-  int aln_pos;
-  int mapq;
-  int ins_size;
-  std::string chr_num;
-  std::string mutation_string;
-  std::string cigar;
-  std::string healthy_cns;
-  std::string qstring;
-
-  // augmented sam - bwa optional fields
-  std::vector<std::string> bwa_fields;
-
-  void load_non_mandatory_field(std::string field);
-  // function loads a field from the sam record into the
-  // corresponding position in bwa_fields
-
-  void skipHeader(ifstream &samfile);
-
-
+  // Fields
 public:
 
-  SamEntry(std::string record);
-  int getFlag();
-  int getAlnPos();
-  int getMapq();
-  int getInsSize();
+  // COMPULSORY SAM FIELDS
+  static const int QNAME;  // <int, string> K, V
+  static const int FLAG;  // <int, int> K, V
+  static const int RNAME;  // <int, string> K, V
+  static const int POS;  // <int, int> K, V
+  static const int MAPQ;  // <int, int> K, V
+  static const int CIGAR;  // <int, string> K, V
+  static const int RNEXT;  // <int, string> K, V
+  static const int PNEXT;  // <int, string> K, V
+  static const int TLEN;  // <int, string> K, V
+  static const int SEQ;  // <int, string> K, V
+  static const int QUAL; // <int, string> K, V
 
-  std::string getChrNum();
-  std::string getMutationString();
-  std::string getCigarString();
-  std::string getHealthyCns();
-  std::string getQString();
+  // BWA OPT FIELDS
+  static const int NM;    // <int, string> K, V 
+  static const int MD;    // <int, string> K, V 
+  static const int AS;    // <int, string> K, V 
+  static const int BC;    // <int, string> K, V 
+  static const int X0;    // <int, string> K, V 
+  static const int X1;    // <int, string> K, V 
+  static const int XN;    // <int, string> K, V 
+  static const int XM;    // <int, string> K, V 
+  static const int XO;    // <int, string> K, V 
+  static const int XG;    // <int, string> K, V 
+  static const int XT;    // <int, string> K, V 
+  static const int XA;    // <int, string> K, V 
 
-  bool bwaFieldContainsElem(int field_num);
-  // return whether the field contains element i.e is valid, 
-  // or not (is empty string);
 
-  std::string getBwaField(int field_num);
-  // returns the fiedl at index field_num from the bwa unique sam fields
 
-  std::vector<single_snv> * generateReportableSNVs();
-  // this function uses this.position, and the location of the
-  // SNVs in SNV_pos to generate a vector of reportable_snvs from the
-  // both the compulsary alignment, and the alternative alignments.
-  // To be included, the alternative alignments must be to chromosome 22. 
-  // In the non-dev case. Anything with alternative alignments would be
-  // discarded. This is being done to identify whether there are equivalent
-  // alignments to 22, and if so, how to "coax" them out into the prefered field
+  static const int XS;    // <int, string> K, V 
+  static const int XF;    // <int, string> K, V 
+  static const int XE;    // <int, string> K, V 
 
-  void printEntry();
-  // Print the SamEntry info
+  // ICSMuFin FIELDS
+  static const int LEFT_OHANG;   // <int, int> K,V
+  static const int RIGHT_OHANG;  // <int, int> K, V
+  static const int BLOCK_ID;     // <int, int> K, V
+  static const int CANCER_SEQ;   // <int, string> K, V
 
-  void printRecord();
+  SamEntry(std::string const& entry); // information parsed from this
+
+
+
+
+  // substript access wrapper for fields (map<int, boost::any>)
+  template <typename RT>
+  RT get(int key) {
+
+    try {
+      return boost::any_cast<RT> (fields[key]);
+    }
+    catch(...) {
+      std::cout << "Exception occured" << std::endl
+                << "Likely a cast to incorrect type, or" << std::endl
+                << "you tried to access an absent key." << std::endl;
+
+    }
+  }
+
+
+private:
+  // Fields
+  std::vector<int> SNVLocations; // SNV index relative to QUAL string
+  unsigned int pair_id;          // not sure if this is nec.
+
+  std::map<int, boost::any> fields; // contains all the sam data fields
+                                    // accessed via the static consts
+
+  std::string startsWith(std::string const& tok, std::vector<std::string> const&
+      fields);
+
+
 };
-
-
 #endif
-
