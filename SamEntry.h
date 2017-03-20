@@ -17,7 +17,7 @@ class SamEntry {
 public:
 
   // COMPULSORY SAM FIELDS
-  static const int QNAME;  // <int, string> K, V
+  static const int HDR;  // <int, string> K, V
   static const int FLAG;  // <int, int> K, V
   static const int RNAME;  // <int, string> K, V
   static const int POS;  // <int, int> K, V
@@ -53,12 +53,11 @@ public:
   static const int LEFT_OHANG;   // <int, int> K,V
   static const int RIGHT_OHANG;  // <int, int> K, V
   static const int BLOCK_ID;     // <int, int> K, V
-  static const int CANCER_SEQ;   // <int, string> K, V
+
+
+  // FUNCTIONS
 
   SamEntry(std::string const& entry); // information parsed from this
-
-
-
 
   // substript access wrapper for fields (map<int, boost::any>)
   template <typename RT>
@@ -68,10 +67,21 @@ public:
       return boost::any_cast<RT> (fields[key]);
     }
     catch(...) {
-      std::cout << "Exception occured" << std::endl
-                << "Likely a cast to incorrect type, or" << std::endl
+      std::cout << "exception occured" << std::endl
+                << "likely a cast to incorrect type, or" << std::endl
                 << "you tried to access an absent key." << std::endl;
 
+    }
+  }
+  
+  template <typename T>
+  void set(int key, T value) {
+    try {
+      fields[key] = value;
+    }
+    catch (...) {
+      std::cout << "exception occured" << std::endl
+                << "likely tried to access an abscent key." << std::endl;
     }
   }
 
@@ -84,6 +94,7 @@ private:
   std::map<int, boost::any> fields; // contains all the sam data fields
                                     // accessed via the static consts
 
+  // FUNCTIONS
   std::string startsWith(std::string const& tok, std::vector<std::string> const&
       fields);
 

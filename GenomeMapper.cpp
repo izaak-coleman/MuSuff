@@ -47,7 +47,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   cout << "Calling bwa" << endl;
   callBWA();
 
-  vector<snv_aln_info> alignments;
+  vector<SamEntry> alignments;
   cout << "Parsing sam" << endl;
   parseSamFile(alignments, "/data/ic711/result/cns_pairs.sam");
   cout << "Identifying SNV" << endl;
@@ -364,63 +364,32 @@ void GenomeMapper::constructSNVFastqData() {
 
 
 
-void GenomeMapper::parseSamFile(vector<snv_aln_info> &alignments, string filename) {
+void GenomeMapper::parseSamFile(vector<SamEntry> &alignments, string filename) {
   ifstream snv_sam(filename);	// open alignment file
   
   boost::regex rgx_header("(@).*");
-  boost::regex rgx_entry_id("^([ATCG]*)\\[(.*)\\;(.*)\\;(.*)\\]$");
-
   string line;
-
   while(getline(snv_sam, line)) {
 
     if (boost::regex_match(line, rgx_header)) {	// skip past headers
       continue;
     }
    
-    vector<string> fields;
-    split_string(line, "\t", fields);
-
-    if (fields[CHR] != "22") {
+    SamEntry entry(line);     // parse the entry into a SamEntry
+    if (entry.get<string>(SamEntry::RNAME) != "22") {
       continue;
     }
-
-    snv_aln_info al_info;
-
-    // load relevant fields into each align info struct that dont require parsing
-    al_info.flag = stoi(fields[FLAG]);
-    al_info.chr = stoi(fields[CHR]);
-    al_info.position = stoi(fields[AL_INDEX]);
-    al_info.non_mutated_cns = fields[AL_CNS];
-
-
-
-    // split DNA from overhangs
-    boost::smatch entry_id_fields;
-    boost::regex_match(fields[MUT_CODE], entry_id_fields, rgx_entry_id);
-
-    // extract mutated cns, overhangs and pair_id
-    al_info.mutated_cns = entry_id_fields[MUT_CNS];
-    al_info.left_ohang = stoi(entry_id_fields[2]);
-    al_info.right_ohang = stoi(entry_id_fields[3]);
-    al_info.pair_id = stoi(entry_id_fields[4]);
-
-    // DEV RULE: clearing al_info.SNV_pos to build from scrach using
-    // post snv identification design
-    //al_info.SNV_pos.clear(); // should be empty anyways as no call to countSNVs()
-
-    alignments.push_back(al_info);
+    alignments.push_back(entry);
   }
-
 }
 
-void GenomeMapper::printAllAlignments(vector<snv_aln_info> &alignments){
-  for(snv_aln_info snv: alignments) {
-    cout << "FLAG  :" << snv.flag << endl;
-    cout << "CHR  :" << snv.chr << endl;
-    cout << "POS :" << snv.position << endl;
-    cout << "HELATHY: " << snv.non_mutated_cns << endl;
-    cout << "TUMOUR : " << snv.mutated_cns << endl;
+void GenomeMapper::printAllAlignments(vector<SamEntry> &alignments){
+  for(snv_aln_info entry: alignments) {
+    cout << "FLAG  :" << entry.get<int>(SamEntry::FLAG) << endl;
+    cout << "CHR  :" << entry.get<string>(SamEntry::RNAME) << endl;
+    cout << "POS :" << entry.get<int>(SamEntry::POS) << endl;
+    cout << "HEALTHY: " << entry.get<string>(SamEntry::SEQ) << endl;
+    cout << "TUMOUR : " << entry.get<string>(SamEntry::HDR) << endl;
     for(int m : snv.SNV_pos) {
       cout << m << ", ";
     }
@@ -491,20 +460,18 @@ void GenomeMapper::correctReverseCompSNV(vector<snv_aln_info> &alignments) {
   }
 }
 
-void GenomeMapper::identifySNVs(vector<snv_aln_info> &alignments) {
-  for (snv_aln_info &a : alignments) {
-      if(a.flag == FORWARD_FLAG) {
-        countSNVs(a, a.left_ohang);
+void GenomeMapper::identifySNVs(vector<SamEntry> &alignments) {
+  for (SamEntry & entry : alignments) {
+      if(entry.get<int>(SamEntry::FLAG) == FORWARD_FLAG) {
+        countSNVs(entry, entry.get<int>(SamEntry::LEFT_OHANG));
       }
-      else if (a.flag == REVERSE_FLAG) {
-        a.mutated_cns = reverseComplementString(a.mutated_cns); 
-        countSNVs(a, a.right_ohang); // invert overhangs due to rev comp
+      else if (entry.get<int>(SamEntry::FLAG) == REVERSE_FLAG) {
+        entry.set(SamEntry::HDR, reverseComplementString(entry.get<string>(SamEntry::HDR))); 
+        countSNVs(entry, entry.get<int>(SamEntry::RIGHT_OHANG)); // invert overhangs due to rev comp
       }
   }
 }
-void GenomeMapper::countSNVs(snv_aln_info &alignment, int ohang) {
-
-  
+void GenomeMapper::countSNVs(SamEntry &alignment, int ohang) {
   // indel signature
   for(int i=0; i < alignment.mutated_cns.size() - 1; i++) {
     if (alignment.mutated_cns[i] != alignment.non_mutated_cns[i + ohang] &&
@@ -516,7 +483,7 @@ void GenomeMapper::countSNVs(snv_aln_info &alignment, int ohang) {
   // SNV at start
   if (alignment.mutated_cns[0] != alignment.non_mutated_cns[0 + ohang] &&
       alignment.mutated_cns[1] == alignment.non_mutated_cns[1 + ohang]) {
-      alignment.SNV_pos.push_back(0);
+      alignment.snv_push_back(0);  // <- UP TO HERE WITH INTEGRATION
   }
 
   // SNV at end 

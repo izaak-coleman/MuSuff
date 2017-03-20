@@ -10,7 +10,7 @@ using namespace std;
 
 
 // COMPULSORY SAM FIELDS
-const int SamEntry::QNAME = 0;
+const int SamEntry::HDR   = 0;
 const int SamEntry::FLAG  = 1;
 const int SamEntry::RNAME = 2;
 const int SamEntry::POS   = 3;
@@ -43,7 +43,6 @@ const int SamEntry::XE = 25;
 const int SamEntry::LEFT_OHANG = 26;
 const int SamEntry::RIGHT_OHANG = 27;
 const int SamEntry::BLOCK_ID = 28;
-const int SamEntry::CANCER_SEQ = 29;
 
 SamEntry::SamEntry(string const& entry) {
   vector<string> split_result;
@@ -66,7 +65,7 @@ try {
     vector<string> header_subs;
     // split off the cancer cns
     split_string(header, "[", header_subs);
-    fields[QNAME] = header_subs[0];
+    fields[HDR] = header_subs[0];
   
     // cut of the end "]" char
     header = header_subs[1].substr(0, header_subs[1].length()-1);
@@ -111,4 +110,8 @@ string SamEntry::startsWith(string const& tok, vector<string> const& fields) {
     if (tok == s.substr(0, 2)) return s;
   }
   return "\0";
+}
+
+void SamEntry::snv_push_back(int v) {
+  SNVLocations.push_back(v);
 }
