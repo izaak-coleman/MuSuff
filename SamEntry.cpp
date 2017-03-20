@@ -61,25 +61,7 @@ try {
         fields[i] = split_result[i];
       }
     }
-    split_result.erase(split_result.begin(), split_result.begin() + 11);
-  
-    // extract bwa optional fields
-    fields[NM] = startsWith("NM", split_result);
-    fields[MD] = startsWith("MD", split_result);
-    fields[AS] = startsWith("AS", split_result);
-    fields[BC] = startsWith("BC", split_result);
-    fields[X0] = startsWith("X0", split_result);
-    fields[X1] = startsWith("X1", split_result);
-    fields[XN] = startsWith("XN", split_result);
-    fields[XM] = startsWith("XM", split_result);
-    fields[XO] = startsWith("XO", split_result);
-    fields[XG] = startsWith("XG", split_result);
-    fields[XT] = startsWith("XT", split_result);
-    fields[XA] = startsWith("XA", split_result);
-    fields[XS] = startsWith("XS", split_result);
-    fields[XF] = startsWith("XF", split_result);
-    fields[XE] = startsWith("XE", split_result);
- 
+
     // parse the fastq header field
     vector<string> header_subs;
     // split off the cancer cns
@@ -95,6 +77,27 @@ try {
     fields[LEFT_OHANG] = stoi(header_subs[0]);
     fields[RIGHT_OHANG] = stoi(header_subs[1]);
     fields[BLOCK_ID] = stoi(header_subs[2]);
+
+    if (fields.size() > 11) {
+      // extract bwa optional fields
+      split_result.erase(split_result.begin(), split_result.begin() + 11);
+  
+      fields[NM] = startsWith("NM", split_result);
+      fields[MD] = startsWith("MD", split_result);
+      fields[AS] = startsWith("AS", split_result);
+      fields[BC] = startsWith("BC", split_result);
+      fields[X0] = startsWith("X0", split_result);
+      fields[X1] = startsWith("X1", split_result);
+      fields[XN] = startsWith("XN", split_result);
+      fields[XM] = startsWith("XM", split_result);
+      fields[XO] = startsWith("XO", split_result);
+      fields[XG] = startsWith("XG", split_result);
+      fields[XT] = startsWith("XT", split_result);
+      fields[XA] = startsWith("XA", split_result);
+      fields[XS] = startsWith("XS", split_result);
+      fields[XF] = startsWith("XF", split_result);
+      fields[XE] = startsWith("XE", split_result);
+    }
   }
 catch(...) {
   cout << "Exception!!" << endl;

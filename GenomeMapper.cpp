@@ -26,7 +26,7 @@ static const int SSV = 2;
 static const int LSV = 3;
 static const int MUT_CNS = 1;
 
-static const int MAX_LOW_CONF_POSITIONS = 3;
+static const int MAX_LOW_CONF_POSITIONS = 10;
 
 
 static const int REVERSE_FLAG = 16;
@@ -94,6 +94,12 @@ void GenomeMapper::buildConsensusPairs() {
       continue;
     }
 
+    //cout << "Cancer: " << endl;
+    //cout << pair.mutated << endl
+    //     << pair.mqual << endl;
+    //cout << "Healthy: " << endl;
+    //cout << pair.non_mutated << endl
+    //     << pair.nqual << endl;
     trimCancerConsensus(pair);                // trim extra cancer sequence
 
     //// TURN OFF MASK
@@ -102,12 +108,6 @@ void GenomeMapper::buildConsensusPairs() {
     if (low_quality_block) {
       continue;
     }
-    cout << "Cancer: " << endl;
-    cout << pair.mutated << endl
-         << pair.mqual << endl;
-    cout << "Healthy: " << endl;
-    cout << pair.non_mutated << endl
-         << pair.nqual << endl;
     consensus_pairs.push_back(pair);
   }
   cout << "Skipped " << continued << endl;
@@ -266,7 +266,6 @@ void GenomeMapper::maskLowQualityPositions(consensus_pair & pair, bool &low_qual
 void GenomeMapper::trimCancerConsensus(consensus_pair & pair) {
   // Trim portions of the cancer consensus sequence that are
   // longer than heathy. Leave healthy if longer.
-
   // left cleave
   if (pair.mut_offset > pair.nmut_offset) {
     pair.mutated.erase(0, pair.mut_offset - pair.nmut_offset);
@@ -280,7 +279,7 @@ void GenomeMapper::trimCancerConsensus(consensus_pair & pair) {
   if (pair.mutated.size() > (pair.non_mutated.size() - pair.left_ohang)) {
     int dist = pair.mutated.size() - (pair.non_mutated.size() - pair.left_ohang);
     pair.mutated.erase(pair.mutated.size() - dist, dist);
-    pair.mqual.erase(pair.mutated.size() - dist, dist);
+    pair.mqual.erase(pair.mqual.size() - dist, dist);
   }
   else if (pair.mutated.size() < (pair.non_mutated.size() - pair.left_ohang)) {
     pair.right_ohang = (pair.non_mutated.size() - pair.left_ohang) - pair.mutated.size();
@@ -358,7 +357,7 @@ void GenomeMapper::constructSNVFastqData() {
 
     snv_fq << cns_pair.non_mutated << endl;
     snv_fq << "+" << endl;
-    string qual(cns_pair.non_mutated.size(), '~'); // set quality to highest, as dummy
+    string qual(cns_pair.non_mutated.size(), '!'); // set quality to highest, as dummy
     snv_fq << qual << endl;
   }
 }
@@ -408,7 +407,7 @@ void GenomeMapper::parseSamFile(vector<snv_aln_info> &alignments, string filenam
 
     // DEV RULE: clearing al_info.SNV_pos to build from scrach using
     // post snv identification design
-    al_info.SNV_pos.clear(); // should be empty anyways as no call to countSNVs()
+    //al_info.SNV_pos.clear(); // should be empty anyways as no call to countSNVs()
 
     alignments.push_back(al_info);
   }

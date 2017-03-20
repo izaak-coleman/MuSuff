@@ -28,6 +28,7 @@ private:
 
   int minimum_suffix_size;
   double econt;
+  int distal_trim_len;
   std::string ofile;
   std::vector<std::string> HealthyReads;  // Container for healthy dataset
   std::vector<std::string> TumourReads;   // Container for cancer dataset 
@@ -53,6 +54,11 @@ private:
   // 2) Removes N characters spliting the read. Fragments with size < 30 are
   // min_suffix_size
 
+  std::string performDistalTrim(std::string & s);
+  // Function performs a distal trim of length distal_trim_len.
+  // This is currently set to distance DISTAL_TRIM -> need
+  // to switch to user input
+
 public:
  // these arrays have a 1:1 mapping with the HealthyReads, TumourReads arrays
  // where their values express whether the read at the same index in 
@@ -60,6 +66,9 @@ public:
 
  ReadsManipulator(int argc, char **argv);
  // Constructor for loading and processing reads
+
+ void printAllReads();
+ // prints all reads to file reads_after_icsmufin.txt
 
 
  ~ReadsManipulator();

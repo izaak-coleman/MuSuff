@@ -29,12 +29,26 @@ static const int OFILE_IDX = 3;
 static const int TERM_CHAR_CORRECTION = 1;
 static const int N_THREADS = 1;
 static const int MIN_SUFFIX_SIZE = 30;  // remove user definable variable
+static const int DISTAL_TRIM = 0;
 
 static const double QUALITY_THRESH = 0.1; // 10% 
 static const char PHRED_20 = '5';   // lowest high quality phred score
 
 static const string REMOVED_TOKENS = "N"; // remove N from fastq
 static const string TERM_CHAR = "$";      // suffix termination character
+
+void ReadsManipulator::printAllReads() {
+  ofstream osock("/data/ic711/reads_after_icsmufin.txt");
+  for (string s : HealthyReads) {
+    s.pop_back();
+    osock << s << endl;
+  }
+  for (string s : TumourReads) {
+    s.pop_back();
+    osock << s << endl;
+  }
+  osock.close();
+}
 
 
 ReadsManipulator::ReadsManipulator(int argc, char **argv) {
@@ -81,6 +95,7 @@ void ReadsManipulator::parseCommandLine(int argc, char** argv,
   // save params
   minimum_suffix_size = MIN_SUFFIX_SIZE;
   econt = std::stod(argv[ECONT_IDX]);
+  distal_trim_len = DISTAL_TRIM;
 
   // store data file names
   ifstream headerfile;
@@ -123,6 +138,12 @@ void ReadsManipulator::parseCommandLine(int argc, char** argv,
     datafiles.push_back(file_info);      // store in params
   }
 
+}
+
+string ReadsManipulator::performDistalTrim(string & s) {
+  s.erase(0, distal_trim_len);
+  s.erase(s.length() - distal_trim_len);
+  return s;
 }
 
 void ReadsManipulator::loadFastqRawDataFromFile(string filename, 
@@ -227,7 +248,6 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
       }
       iter++;
     }
-
     // if number of low quality bases above QUALITY_THRESH reject it 
     // (skip over the read in the for loop without adding to localThreadStore)
     if( (n_low_qual_bases / (*r_data)[i].qual.size()) >  QUALITY_THRESH) {
@@ -248,7 +268,7 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
 
   std::lock_guard<std::mutex> lock(quality_processing_lock); // coordinate threads
   for (string accepted_read : localThreadsStore) {
-    p_data->push_back(accepted_read);
+    p_data->push_back(accepted_read); // load trimmed read
   }
 
     // Link iterators to string

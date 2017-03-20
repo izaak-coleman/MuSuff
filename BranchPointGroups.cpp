@@ -28,7 +28,8 @@ using namespace std;
 static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
-static const int CTR_GSA1 = 1;
+static const int READ_LENGTH = 100;
+static const int CTR_GSA1 = 4;
 static const int CTR_GSA2 = 4;
 
 
@@ -443,7 +444,7 @@ char BranchPointGroups::revCompCharacter(char ch, bool rc) {
   }
 }
 
-//// New version: Takes into account CTR and does not have rare case bug
+////// New version: Takes into account CTR and does not have rare case bug
 //void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
 //  // Adding from, to parameters, in order to make logic compatible
 //  // with later multithreading modifications.
@@ -815,7 +816,7 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   // initialize align_counter.
   vector< vector<int> > align_counter;
   for (int n_vectors=0; n_vectors < 4; n_vectors++) {
-    vector<int> v(max_offset + 80 - min_offset, 0);
+    vector<int> v(max_offset + READ_LENGTH - min_offset, 0);
     align_counter.push_back(v);
   }
 
@@ -914,7 +915,7 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   if (cns == "") return true;
 
 
-  //// DEBUG
+  // DEBUG
   std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
   std::endl;
   cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
@@ -966,29 +967,34 @@ string BranchPointGroups::buildQualityString(vector< vector<int> > const& freq_m
     }
   }
 
+  if (cns.size() == 0) {
+    cout << "No consensus sequence! " << endl;
+    exit(1);
+  }
   for (int pos=0; pos < cns.size(); pos++) {
-    // As a common masking condition of both healthy and cancer cns',
-    // determine the number of bases above the error frequency
+
+    // Determine the number of bases above the error frequency
     // by the calulation:
     //      bases / total bases = freq.
     // bases is equivalent to the number of reads with a base of type given
     // base. 
+    if (tissue == HEALTHY) {
 
-    double total_bases = 0;                     // get total_bases
-    for (int base=0; base < 4; base++) {
-      total_bases += freq_matrix[base][pos + m_start];
-    }
-    int n_bases_above_err_freq{0};
-    for(int base=0; base < 4; base++) {
-      if((freq_matrix[base][pos + m_start] / total_bases) > ALLELIC_FREQ_OF_ERROR) {
-        n_bases_above_err_freq++;
+      double total_bases = 0;                     // get total_bases
+      for (int base=0; base < 4; base++) {
+        total_bases += freq_matrix[base][pos + m_start];
+      }
+      int n_bases_above_err_freq{0};
+      for(int base=0; base < 4; base++) {
+        if((freq_matrix[base][pos + m_start] / total_bases) > ALLELIC_FREQ_OF_ERROR) {
+          n_bases_above_err_freq++;
+        }
+      }
+      if (n_bases_above_err_freq > 1) { // then mask
+        q_str += "L";
+        continue;
       }
     }
-    if (n_bases_above_err_freq > 1) { // then mask
-      q_str += "L";
-      continue;
-    }
-
 
     // Unique masking logic to cancer reads
     // The supporting evidence for the chosen consensus
