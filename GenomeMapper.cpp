@@ -46,7 +46,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   cout << "Writing fastq" << endl;
   constructSNVFastqData();
   cout << "Calling bwa" << endl;
-  callBWA();
+  callBowtie2();
 
   vector<SamEntry> alignments;
   cout << "Parsing sam" << endl;
@@ -57,6 +57,13 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
 //  printAlignmentStructs(alignments);
 
   outputSNVToUser(alignments, outfile);
+}
+
+void GenomeMapper::callBowtie2() {
+  cout << "Calling Bowtie2" << endl;
+  string command_aln = 
+    "./bowtie2-2.3.1/bowtie2 -x /data/ic711/insilico_data/bowtie_index/hg19 -U /data/ic711/result/cns_pairs.fastq -S /data/ic711/result/cns_pairs.sam";
+  system(command_aln.c_str());
 }
 
 void GenomeMapper::callBWA() {

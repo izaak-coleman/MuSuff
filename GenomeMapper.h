@@ -93,6 +93,11 @@ private:
   // Then cals to bwa samse
   // ./bwa/bwa samse hg19.fa cna_pairs.sai cns_pair.fastq > cns_pairs.sam
 
+  void callBowtie2();
+  // Function calls bowtie2 with following command
+  // "./bowtie2 -x /data/ic711/insilico_data/bowtie_index/hg19 -U \
+  // /data/ic711/result/cns_pairs.fastq -S /data/ic711/result/cns_pairs.sam"
+
   void trimCancerConsensus(consensus_pair &pair);
   // Trims the cancer consensus sequence, so its length is at most
   // the length of the healthy consensus sequence.
