@@ -85,6 +85,17 @@ public:
     }
   }
 
+  int snvLocSize();
+  // returns the size (number of elements) in the SNVLocations
+  // container
+  int snvLocation(int idx);
+  // returns the snv location at SNVLocations[idx]
+  void setSNVLocation(int idx, int val);
+  // sets SNVLocations[idx] = val
+
+  void snv_push_back(int v);
+  // wrapper for SNVLocations.push_back(v)
+
 
 private:
   // Fields

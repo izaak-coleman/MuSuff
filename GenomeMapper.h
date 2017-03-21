@@ -7,6 +7,7 @@
 
 #include "BranchPointGroups.h"
 #include "Reads.h"
+#include "SamEntry.h"
 static const double ALLELIC_FREQ_OF_ERROR = 0.1;
 
 struct snv_aln_info {
@@ -23,7 +24,7 @@ struct snv_aln_info {
 
 struct single_snv {
  int flag;
- int chr;
+ std::string chr;
  int position;
  char mutation_base;
  char healthy_base;
@@ -63,10 +64,10 @@ private:
   // consensus pairs generated from the breakpoint blocks
   // of BPG
 
-  void identifySNVs(std::vector<snv_aln_info> &alignments);
+  void identifySNVs(std::vector<SamEntry> &alignments);
   // iterates through alignments and calls countSNVs() to identify mutations
   // handles reverse complement aligment of the healthy cns
-  void countSNVs(snv_aln_info &alignment, int left);
+  void countSNVs(SamEntry &alignment, int left);
   // use of the overhand allows the healthy and cancer consensus sequences
   // to be correctly lined up for mutation identification, whilst at
   // the same time, allows the entire healthy sequence to be aligned
@@ -108,14 +109,14 @@ private:
   void maskLowQualityPositions(consensus_pair & pair, bool &low_quality);
 
 
-  void parseSamFile(std::vector<snv_aln_info> &alignments, std::string filename);
-  void printAllAlignments(std::vector<snv_aln_info> &alignments);
+  void parseSamFile(std::vector<SamEntry> &alignments, std::string filename);
+  void printAllAlignments(std::vector<SamEntry> &alignments);
 
-  void printSingleAlignment(snv_aln_info &snv);
+  void printSingleAlignment(SamEntry &snv);
   std::string reverseComplementString(std::string s);
-  void correctReverseCompSNV(std::vector<snv_aln_info> &alignments);
+  void correctReverseCompSNV(std::vector<SamEntry> &alignments);
   static bool compareSNVLocations(const single_snv &a, const single_snv &b);
-  void outputSNVToUser(std::vector<snv_aln_info> &alignments, std::string report_filename);
+  void outputSNVToUser(std::vector<SamEntry> &alignments, std::string report_filename);
 
   void printGaps(int gaps);
 
@@ -126,6 +127,6 @@ public:
     void printConsensusPairs();
     // print out each mutated and non mutated string
     void printMutation(char healthy, char cancer, std::ofstream &mut_file);
-    void printAlignmentStructs(std::vector<snv_aln_info> const &alignments);
+    void printAlignmentStructs(std::vector<SamEntry> &alignments);
 };
 #endif

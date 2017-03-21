@@ -1,4 +1,4 @@
-OBJ=main.o util_funcs.o SuffixArray.o BranchPointGroups.o Reads.o GenomeMapper.o string.o
+OBJ=main.o util_funcs.o SuffixArray.o BranchPointGroups.o Reads.o GenomeMapper.o string.o SamEntry.o
 EXE=ICSMuFin
 CXX=g++
 COMPFLAGS=-Wall -ggdb -MMD -std=c++11 -pthread 

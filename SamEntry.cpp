@@ -115,3 +115,8 @@ string SamEntry::startsWith(string const& tok, vector<string> const& fields) {
 void SamEntry::snv_push_back(int v) {
   SNVLocations.push_back(v);
 }
+
+int SamEntry::snvLocSize() { return SNVLocations.size();}
+int SamEntry::snvLocation(int idx) {return SNVLocations[idx];}
+void SamEntry::setSNVLocation(int idx, int val) {SNVLocations[idx] = val;}
+
