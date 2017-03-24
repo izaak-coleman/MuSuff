@@ -32,7 +32,6 @@ static const int OFFSET_IDX  = 1;
 static const int TYPE_IDX = 2;
 static const int NUM_FIELDS = 3;
 
-static const double SA_TO_GSA_SCALE = 0.625;
 
 static const string EXT = ".gsa";
 
@@ -79,16 +78,20 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
   vector<pair<unsigned int, unsigned int> > healthyBSA;
   vector<pair<unsigned int, unsigned int> > tumourBSA;
 
-  BSA_and_SA.push_back (
-      std::thread(&SuffixArray::buildBinarySearchArrays, this, &healthyBSA, &tumourBSA)
-      );
+  //BSA_and_SA.push_back (
+  //    std::thread(&SuffixArray::buildBinarySearchArrays, this, &healthyBSA, &tumourBSA)
+  //    );
 
-  BSA_and_SA.push_back (
-      std::thread(&SuffixArray::generateParallelRadix, this, &radixSA, 
-        &startOfTumour, &radixSASize)
-      );
+  //BSA_and_SA.push_back (
+  //    std::thread(&SuffixArray::generateParallelRadix, this, &radixSA, 
+  //      &startOfTumour, &radixSASize)
+  //    );
 
-  for(auto &thread : BSA_and_SA) { thread.join();}
+  //for(auto &thread : BSA_and_SA) { thread.join();}
+  buildBinarySearchArrays(&healthyBSA, &tumourBSA);
+  cout << "passed this point! " << endl;
+  generateParallelRadix(&radixSA, &startOfTumour, &radixSASize);
+
 
 
 
@@ -135,16 +138,14 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
   }
 
   // Finally, load blocks into final SA in order
-  SA.reserve(radixSASize*SA_TO_GSA_SCALE);   // slightly less as dropped <30 bp sufs
-
   for(int i=0; i < array_blocks.size(); i++) {
     for(int j=0; j < array_blocks[i].size(); j++) {
       SA.push_back(array_blocks[i][j]);
     }
   }
 
+  delete radixSA;  // done with suffix array
   SA.shrink_to_fit();
-  delete radixSA;
 }
 
 void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block, 

@@ -42,15 +42,15 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 
   // Generate branchpoint groups
   cout << "Extracting cancer-specific reads..." << endl;
-  extractCancerSpecificReads(); 
-//  outputExtractedCancerReads("/data/ic711/point3.txt");
+   extractCancerSpecificReads(); 
+  //outputExtractedCancerReads("/data/ic711/point3.txt");
   cout << "No of extracted reads: " << CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
   cout << "Generating breakpoint blocks..." << endl;
 //  makeBreakPointBlocks();
   seedBreakPointBlocks();
-  //outputFromBPB("/data/ic711/point4.txt");
+//  outputFromBPB("/data/ic711/point4.txt");
 
   cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
   cout << "Adding non-mutated alleles to blocks." << endl;
@@ -74,12 +74,6 @@ void BranchPointGroups::outputFromBPB(std::string const& filename) {
       ofHandle << "(" << tag.read_id << ","
                << ((tag.tissue_type) ? "H" : "T")
                << ")" << std::endl;
-
-      if (tag.read_id == 11 && tag.tissue_type) {
-        std::cout << "Culprit block id: " << b.id << std::endl;
-        std::cout << "Read tissue type : " << tag.tissue_type << std::endl;
-        std::cout << "Read 11: " << reads->getReadByIndex(tag.read_id, tag.tissue_type) << std::endl;
-      }
     }
   }
   ofHandle.close();
@@ -761,6 +755,10 @@ void BranchPointGroups::extractNonMutatedAlleles() {
 bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
     int &cns_offset, bool tissue_type, unsigned int &pair_id, 
     string & cns, string & qual) {
+
+  // DEBUG BOOL
+  bool DEBUG_BOOL{false}; // used to print block from skipped groups
+
   // all seqs get converted to RIGHT orientation, before consensus
 
   if (BreakPointBlocks[block_idx].size() > COVERAGE_UPPER_THRESHOLD) {
@@ -784,6 +782,7 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
 
   if(type_subset.size() == 0) {   // no seq. of tissue type, cannot be mapped
     return true;
+   // DEBUG_BOOL = true;
   }
 
   // perform offset conversion, converting LEFT offsets to RIGHT
@@ -913,6 +912,7 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   
   // if empty string, return that we need to skip block
   if (cns == "") return true;
+  //if (cns == "" && type_subset.size() < 4) DEBUG_BOOL = true;
 
 
   // DEBUG
@@ -921,13 +921,15 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
   for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
     cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
-         << ((type_subset[i].tissue_type % 2) ? ", H" : 
-             ((type_subset[i].tissue_type == SWITCHED) ? ", S" : ", T")) << endl;
+         << ((type_subset[i].tissue_type % 2) ? ", (H," : 
+             ((type_subset[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
+         << type_subset[i].read_id << ")" << endl;
   }
   cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
   cout << cns << endl << endl;
   cout << "QSTRING" << endl;
   cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
+  cout << "Block was " << ((DEBUG_BOOL) ? "less than 4" : "greater than 4") << endl;
 
 
   //for(vector<int> v : align_counter) {
@@ -945,6 +947,7 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   // set the quality string
   qual = buildQualityString(align_counter, cns, tissue_type);
   return false;
+  //return DEBUG_BOOL;
 }
 
 string BranchPointGroups::buildQualityString(vector< vector<int> > const& freq_matrix,
@@ -967,10 +970,10 @@ string BranchPointGroups::buildQualityString(vector< vector<int> > const& freq_m
     }
   }
 
-  if (cns.size() == 0) {
-    cout << "No consensus sequence! " << endl;
-    exit(1);
-  }
+  //if (cns.size() == 0) {
+  //  cout << "No consensus sequence! " << endl;
+  //  exit(1);
+  //}
   for (int pos=0; pos < cns.size(); pos++) {
 
     // Determine the number of bases above the error frequency

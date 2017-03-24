@@ -29,7 +29,7 @@ static const int OFILE_IDX = 3;
 static const int TERM_CHAR_CORRECTION = 1;
 static const int N_THREADS = 1;
 static const int MIN_SUFFIX_SIZE = 30;  // remove user definable variable
-static const int DISTAL_TRIM = 0;
+static const int DISTAL_TRIM = 25;
 
 static const double QUALITY_THRESH = 0.1; // 10% 
 static const char PHRED_20 = '5';   // lowest high quality phred score
@@ -37,18 +37,6 @@ static const char PHRED_20 = '5';   // lowest high quality phred score
 static const string REMOVED_TOKENS = "N"; // remove N from fastq
 static const string TERM_CHAR = "$";      // suffix termination character
 
-void ReadsManipulator::printAllReads() {
-  ofstream osock("/data/ic711/reads_after_icsmufin.txt");
-  for (string s : HealthyReads) {
-    s.pop_back();
-    osock << s << endl;
-  }
-  for (string s : TumourReads) {
-    s.pop_back();
-    osock << s << endl;
-  }
-  osock.close();
-}
 
 
 ReadsManipulator::ReadsManipulator(int argc, char **argv) {
@@ -71,7 +59,21 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
   }
 
 //  printRemainingReads("/data/ic711/point1.txt");
+//  printAllReads();
   cout << "End of ReadsManipulator constructor " << endl;
+}
+
+void ReadsManipulator::printAllReads() {
+  ofstream osock("/data/ic711/checking_read_trim_len.txt");
+  for (string s : HealthyReads) {
+    s.pop_back();
+    osock << s << endl;
+  }
+  for (string s : TumourReads) {
+    s.pop_back();
+    osock << s << endl;
+  }
+  osock.close();
 }
 
 void ReadsManipulator::parseCommandLine(int argc, char** argv,
@@ -261,7 +263,7 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
     split_string((*r_data)[i].seq, REMOVED_TOKENS, tokenless_set); // remove tok
     for (int i=0; i < tokenless_set.size(); i++) {
       if(tokenless_set[i].length() >= MIN_SUFFIX_SIZE - TERM_CHAR_CORRECTION) {
-        localThreadsStore.push_back(tokenless_set[i] + TERM_CHAR);
+        localThreadsStore.push_back(performDistalTrim(tokenless_set[i]) + TERM_CHAR);
       }
     }
   }
