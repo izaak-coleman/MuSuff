@@ -438,93 +438,91 @@ char BranchPointGroups::revCompCharacter(char ch, bool rc) {
   }
 }
 
-////// New version: Takes into account CTR and does not have rare case bug
-//void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
-//  // Adding from, to parameters, in order to make logic compatible
-//  // with later multithreading modifications.
-//  unsigned int to{gsa.size()}, seed_index{0};
-//  unsigned int extension{seed_index + 1};
-//  unsigned int block_id;
+//// New version: Takes into account CTR and does not have rare case bug
+void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
+  // Adding from, to parameters, in order to make logic compatible
+  // with later multithreading modifications.
+  unsigned int to{gsa.size()}, seed_index{0};
+  unsigned int extension{seed_index + 1};
+  unsigned int block_id;
+
+  // < to is thread safe, != gsa.size() - 1 is rare case bound safe
+  while (seed_index < to && seed_index != gsa.size() - 1) {
+    bp_block block;
+    // compute group size - avoid inserting here to avoid unnecessary mallocs
+    while (computeLCP(gsa[seed_index], gsa[extension]) >= reads->getMinSuffixSize()) {
+      extension++;
+      if (extension == gsa.size()) break;
+    }
+    // Make alloc if group above CTR
+    if (extension - seed_index >= CTR_GSA2) {
+      for (int i=seed_index; i < extension; i++) block.block.insert(gsa[i]); 
+    }
+    else {    // continue, discarding group
+      seed_index = extension++;
+      continue;
+    }
+  
+    // Load group into break point blocks
+    block.id = block_id;
+    BreakPointBlocks.push_back(block);
+    block_id++;
+    seed_index = extension++;
+  }
+
+  if (seed_index == gsa.size() - 1 && CTR_GSA2 == 1) {
+    bp_block block;
+    block.block.insert(gsa[seed_index]);
+    block.id = block_id;
+    BreakPointBlocks.push_back(block);
+  }
+}
+
+//// Old version: Does not take into account CTR, and rare case bug
+//void BranchPointGroups::extractGroups(vector<read_tag> &gsa) {
 //
-//  // < to is thread safe, != gsa.size() - 1 is rare case bound safe
-//  while (seed_index < to && seed_index != gsa.size() - 1) {
-//    bp_block block;
-//
-//    // compute group size - avoid inserting here to avoid unnecassary memory
-//    // allocs
-//    while (computeLCP(gsa[seed_index], gsa[extension]) >= reads->getMinSuffixSize()) {
-//      extension++;
-//      if (extension == gsa.size()) break;
-//    }
-//    // Make alloc if group above CTR
-//    if (extension - seed_index >= CTR_GSA2) {
-//      for(int i=0; i < extension; i++) block.block.insert(gsa[i]); 
-//    }
-//    else {    // continue, discarding group
-//      seed_index = extension++;
-//      continue;
-//    }
-//  
-//    // Load group into break point blocks
-//    block.id = block_id;
-//    BreakPointBlocks.push_back(block);
-//    block_id++;
-//    seed_index = extension++;
-//  }
-//
-//    if (seed_index == gsa.size() - 1 && CTR_GSA2 == 1) {
+//  unsigned int seed_index{0};
+//  unsigned int extension{0};
+//  unsigned int block_id{0};
+//  while (seed_index < gsa.size()-1) {
+//   
+//    // seed
+//    if (computeLCP(gsa[seed_index], gsa[seed_index+1]) >= reads->getMinSuffixSize()) {
 //      bp_block block;
-//      block.block.insert(gsa[seed_index]);
+//      block.block.insert(gsa[seed_index]); // add seed to block
+//      extension = seed_index+1;
+//      // extend
+//      while ((computeLCP(gsa[seed_index], gsa[extension])
+//           >= reads->getMinSuffixSize())) {
+//        block.block.insert(gsa[extension]);
+//        extension++;
+//        if (extension == gsa.size()) break;
+//      }
+//      if (block.block.size() < 4)  {
+//        seed_index = extension;
+//        continue;
+//      }
+//
+//
 //      block.id = block_id;
 //      BreakPointBlocks.push_back(block);
+//      block_id++;
+//
+//      seed_index = extension;
 //    }
+//    else {
+//      seed_index++;
+//    }
+//  }
+//  
+//  // PRINT groups
+//  for (bp_block const& b : BreakPointBlocks) {
+//    cout << "Block id: " << b.id << endl;
+//    for (read_tag const& tag : b.block) {
+//      cout << readTagToString(tag) << endl;
+//    }
+//  }
 //}
-
-// Old version: Does not take into account CTR, and rare case bug
-void BranchPointGroups::extractGroups(vector<read_tag> &gsa) {
-
-  unsigned int seed_index{0};
-  unsigned int extension{0};
-  unsigned int block_id{0};
-  while (seed_index < gsa.size()-1) {
-   
-    // seed
-    if (computeLCP(gsa[seed_index], gsa[seed_index+1]) >= reads->getMinSuffixSize()) {
-      bp_block block;
-      block.block.insert(gsa[seed_index]); // add seed to block
-      extension = seed_index+1;
-      // extend
-      while ((computeLCP(gsa[seed_index], gsa[extension])
-           >= reads->getMinSuffixSize())) {
-        block.block.insert(gsa[extension]);
-        extension++;
-        if (extension == gsa.size()) break;
-      }
-      if (block.block.size() < 4)  {
-        seed_index = extension;
-        continue;
-      }
-
-
-      block.id = block_id;
-      BreakPointBlocks.push_back(block);
-      block_id++;
-
-      seed_index = extension;
-    }
-    else {
-      seed_index++;
-    }
-  }
-  
-  // PRINT groups
-  //for (bp_block const& b : BreakPointBlocks) {
-  //  cout << "Block id: " << b.id << endl;
-  //  for (read_tag const& tag : b.block) {
-  //    cout << readTagToString(tag) << endl;
-  //  }
-  //}
-}
 
 void BranchPointGroups::makeBreakPointBlocks(){
   if(CancerExtraction.size() == 0) {
@@ -757,7 +755,6 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
     string & cns, string & qual) {
 
   // DEBUG BOOL
-  bool DEBUG_BOOL{false}; // used to print block from skipped groups
 
   // all seqs get converted to RIGHT orientation, before consensus
 
@@ -781,6 +778,7 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   pair_id = BreakPointBlocks[block_idx].id;
 
   if(type_subset.size() == 0) {   // no seq. of tissue type, cannot be mapped
+    cout << "SKIPPING FROM HERE" << endl;
     return true;
    // DEBUG_BOOL = true;
   }
@@ -911,25 +909,26 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   }// end for
   
   // if empty string, return that we need to skip block
-  if (cns == "") return true;
+  if (cns == "") {
+    return true;
+  }
   //if (cns == "" && type_subset.size() < 4) DEBUG_BOOL = true;
 
 
-  // DEBUG
-  std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
-  std::endl;
-  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
-    cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
-         << ((type_subset[i].tissue_type % 2) ? ", (H," : 
-             ((type_subset[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
-         << type_subset[i].read_id << ")" << endl;
-  }
-  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  cout << cns << endl << endl;
-  cout << "QSTRING" << endl;
-  cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
-  cout << "Block was " << ((DEBUG_BOOL) ? "less than 4" : "greater than 4") << endl;
+  //// DEBUG
+  //std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
+  //std::endl;
+  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  //for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
+  //  cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
+  //       << ((type_subset[i].tissue_type % 2) ? ", (H," : 
+  //           ((type_subset[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
+  //       << type_subset[i].read_id << ")" << endl;
+  //}
+  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  //cout << cns << endl << endl;
+  //cout << "QSTRING" << endl;
+  //cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
 
 
   //for(vector<int> v : align_counter) {

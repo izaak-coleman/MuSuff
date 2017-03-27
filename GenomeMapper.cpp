@@ -99,6 +99,7 @@ void GenomeMapper::buildConsensusPairs() {
     // and mutated cns pair
     if(skip_mutated == true  || skip_non_mutated == true) {
       continued++;
+      cout << "Skupping!!" << endl;
       continue;
     }
 
@@ -110,12 +111,12 @@ void GenomeMapper::buildConsensusPairs() {
     //     << pair.nqual << endl;
     trimCancerConsensus(pair);                // trim extra cancer sequence
 
-    //// TURN LQF OFF MASK
-    //bool low_quality_block = false;
-    //maskLowQualityPositions(pair, low_quality_block);
-    //if (low_quality_block) {
-    //  continue;
-    //}
+    // TURN LQF OFF MASK
+    bool low_quality_block = false;
+    maskLowQualityPositions(pair, low_quality_block);
+    if (low_quality_block) {
+      continue;
+    }
     consensus_pairs.push_back(pair);
   }
   cout << "Skipped " << continued << endl;

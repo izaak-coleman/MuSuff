@@ -78,19 +78,16 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
   vector<pair<unsigned int, unsigned int> > healthyBSA;
   vector<pair<unsigned int, unsigned int> > tumourBSA;
 
-  //BSA_and_SA.push_back (
-  //    std::thread(&SuffixArray::buildBinarySearchArrays, this, &healthyBSA, &tumourBSA)
-  //    );
+  BSA_and_SA.push_back (
+      std::thread(&SuffixArray::buildBinarySearchArrays, this, &healthyBSA, &tumourBSA)
+      );
 
-  //BSA_and_SA.push_back (
-  //    std::thread(&SuffixArray::generateParallelRadix, this, &radixSA, 
-  //      &startOfTumour, &radixSASize)
-  //    );
+  BSA_and_SA.push_back (
+      std::thread(&SuffixArray::generateParallelRadix, this, &radixSA, 
+        &startOfTumour, &radixSASize)
+      );
 
-  //for(auto &thread : BSA_and_SA) { thread.join();}
-  buildBinarySearchArrays(&healthyBSA, &tumourBSA);
-  cout << "passed this point! " << endl;
-  generateParallelRadix(&radixSA, &startOfTumour, &radixSASize);
+  for(auto &thread : BSA_and_SA) { thread.join();}
 
 
 

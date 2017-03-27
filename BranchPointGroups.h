@@ -172,7 +172,7 @@ private:
   // Output: Loads the groups of cancer specific reads into BreakPointBlocks
   // Details: Uses a GSA in order to group the reads. Groups are formed
   // from reads contiguous in the array that have LCP >= 30
-  void extractGroups(std::vector<read_tag> & gsa);
+  void extractGroups(std::vector<read_tag> const& gsa);
   // Input: GSA of cancer specific reads
   // Output: BreakPointBlocks with loaded blocks
   // Details: Forms the groups of contiguous reads with LCP >= 30 
