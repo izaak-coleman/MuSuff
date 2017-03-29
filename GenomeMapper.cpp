@@ -99,7 +99,6 @@ void GenomeMapper::buildConsensusPairs() {
     // and mutated cns pair
     if(skip_mutated == true  || skip_non_mutated == true) {
       continued++;
-      cout << "Skupping!!" << endl;
       continue;
     }
 

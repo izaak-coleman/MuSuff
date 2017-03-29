@@ -15,12 +15,12 @@
 // a read_tag is extracted for each read in a break ppoint
 // block determining now the read aligns to the other
 // reads in its block, and its aligned orientation
- struct read_tag{
+struct read_tag{
   unsigned int read_id;
-  int offset;
+  mutable int offset;
   bool orientation;
   int tissue_type;
- };
+};
 
 struct read_tag_compare{
   // this functor only compares the read id from hashtag
@@ -192,6 +192,10 @@ private:
   int computeLCP(read_tag const& a, read_tag const& b);
 
   char revCompCharacter(char ch, bool rc);
+
+  void mergeBlocks(bp_block & to, bp_block & from);
+
+  void unifyBlocks(std::vector<bp_block> & seedBlocks);
   
 
 public:

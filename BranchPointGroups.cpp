@@ -29,7 +29,7 @@ static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
 static const int READ_LENGTH = 100;
-static const int CTR_GSA1 = 4;
+static const int CTR_GSA1 = 1;
 static const int CTR_GSA2 = 4;
 
 
@@ -448,6 +448,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
 
   // < to is thread safe, != gsa.size() - 1 is rare case bound safe
   while (seed_index < to && seed_index != gsa.size() - 1) {
+    cout << extension << endl;
     bp_block block;
     // compute group size - avoid inserting here to avoid unnecessary mallocs
     while (computeLCP(gsa[seed_index], gsa[extension]) >= reads->getMinSuffixSize()) {
@@ -778,7 +779,6 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   pair_id = BreakPointBlocks[block_idx].id;
 
   if(type_subset.size() == 0) {   // no seq. of tissue type, cannot be mapped
-    cout << "SKIPPING FROM HERE" << endl;
     return true;
    // DEBUG_BOOL = true;
   }
@@ -1228,6 +1228,107 @@ long long int BranchPointGroups::backUpToFirstMatch(long long int bs_hit, string
     }
   }
   return bs_hit + 1; // 0
+}
+
+void BranchPointGroups::mergeBlocks(bp_block & to, bp_block & from) {
+  set<read_tag, read_tag_compare>::iterator f_it = from.block.begin();
+  set<read_tag, read_tag_compare>::iterator common_read;
+  // Find read in common between blocks.
+  for(; (common_read = to.block.find(*f_it)) == to.block.end(); f_it++);
+
+  // Adjust offsets to to block.
+  int adjustment = common_read->offset - f_it->offset;
+  for (set<read_tag, read_tag_compare>::iterator it = from.block.begin();
+       it != from.block.end();
+       it++) {
+    if (it->orientation == RIGHT) {
+      it->offset += adjustment;
+    } else {
+      it->offset -= adjustment;
+    }
+    to.insert(*it);
+  }
+}
+
+void BranchPointGroups::unifyBlocks(vector<bp_block> & seedBlocks) {
+  std::sort(
+    seedBlocks.begin(), seedBlocks.end(), 
+    [](bp_block const& a, bp_block const& b) {
+      return a.block.size() < b.block.size();
+    }
+  );
+
+  struct blockMergeStatus{
+    unsigned int id;
+    unsigned int mergeTo;
+    bool merged;
+    blockMergeStatus(unsigned int i, unsigned int mt, bool m): id(i),
+    mergeTo(mt), merged(m){}
+  };
+
+  vector<blockMergeStatus> mTable;    // stores merge info
+  for (int i = 0; i < seedBlocks.size(); i++) {
+    mTable.push_back(
+        blockMergeStatus(i, std::numeric_limits<unsigned int>::max(), false)
+    );
+  }
+
+  unsigned int min = std::numeric_limits<unsigned int>::max();
+  unsigned int max = 0;
+  for (bp_block const& b : seedBlocks) {      // find global min/max
+    for (set<read_tag, read_tag_compare>::const_iterator block_it = b.block.begin();
+        block_it != b.block.end();
+        block_it++) {
+      if (block_it->read_id < min) {
+        min = block_it->read_id;
+      }
+      if (block_it->read_id > max) {
+        max = block_it->read_id;
+      }
+    }
+  }
+
+  // begin merging
+  bool mergeOccured = false;
+  do {
+    mergeOccured = false;   // reset after loop
+    vector<vector<vector<blockMergeStatus>::iterator> >  tagArray(max+1 - min);
+
+    // construct the tag array
+    for (unsigned int mIdx = 0; mIdx < seedBlocks.size(); mIdx++) {
+      if (mTable[mIdx].merged) continue;
+      for (read_tag const& r : seedBlocks[mIdx].block) {
+        vector<blockMergeStatus>::iterator tag = mTable.begin() + mIdx;
+        tagArray[r.read_id - min].push_back(tag);
+      }
+    }
+
+    // merge blocks
+    for (vector<vector<blockMergeStatus>::iterator> & queue : tagArray) {
+      if (queue.size() < 2) continue;   // nothing to merge
+      unsigned int mergeTo;
+      if (queue[0]->merged) {
+        mergeTo = queue[0]->mergeTo;
+      } else {
+        mergeTo = queue[0]->id;
+      }
+
+      for (unsigned int qIdx= queue.size()-1; qIdx > 0; qIdx--) {
+        if (queue[qIdx]->merged) continue;
+        mergeOccured = true;
+        mergeBlocks(seedBlocks[queue[0]->id], seedBlocks[queue[qIdx]->id]);
+        queue[qIdx]->merged = true;   // update mTable status post-merge
+        queue[qIdx]->mergeTo = mergeTo;
+      }
+    }
+  } while (mergeOccured);
+
+//  for (blockMergeStatus const& status : mTable) {
+//    if (!status.merged) { // blocks that never merged were merged to
+//      if (seedBlocks[status.id].size() < GSA2_CTR) continue;
+//      BreakPointBlocks.push_back(seedBlocks[status.id]);
+//    }
+//  }
 }
 
 unsigned int BranchPointGroups::getSize() {
