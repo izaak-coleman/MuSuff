@@ -93,6 +93,7 @@ private:
   // in the same orientation. This is done by unifyComplementaryGroups()
   // The unified groups are then stored in ComplementaryUnified
 
+  std::vector<bp_block> BlockSeeds;
   std::vector<bp_block> BreakPointBlocks;
   
 
