@@ -28,7 +28,7 @@ using namespace std;
 static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
-static const int READ_LENGTH = 100;
+static const int READ_LENGTH = 80;
 static const int CTR_GSA1 = 1;
 static const int CTR_GSA2 = 4;
 
@@ -51,9 +51,11 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 //  makeBreakPointBlocks();
   seedBreakPointBlocks();
 //  outputFromBPB("/data/ic711/point4.txt");
-
-  cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
-  cout << "Adding non-mutated alleles to blocks." << endl;
+  unifyBlocks(BlockSeeds);
+  BlockSeeds.clear();
+  printBreakPointBlocks();
+  //cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
+  //cout << "Adding non-mutated alleles to blocks." << endl;
   extractNonMutatedAlleles();
   //outputFromBPB("/data/ic711/point5.txt");
 }
@@ -448,7 +450,6 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
 
   // < to is thread safe, != gsa.size() - 1 is rare case bound safe
   while (seed_index < to && seed_index != gsa.size() - 1) {
-    cout << extension << endl;
     bp_block block;
     // compute group size - avoid inserting here to avoid unnecessary mallocs
     while (computeLCP(gsa[seed_index], gsa[extension]) >= reads->getMinSuffixSize()) {
@@ -466,7 +467,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
   
     // Load group into break point blocks
     block.id = block_id;
-    BreakPointBlocks.push_back(block);
+    BlockSeeds.push_back(block);
     block_id++;
     seed_index = extension++;
   }
@@ -475,7 +476,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
     bp_block block;
     block.block.insert(gsa[seed_index]);
     block.id = block_id;
-    BreakPointBlocks.push_back(block);
+    BlockSeeds.push_back(block);
   }
 }
 
@@ -916,19 +917,19 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
 
 
   //// DEBUG
-  //std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
-  //std::endl;
-  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  //for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
-  //  cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
-  //       << ((type_subset[i].tissue_type % 2) ? ", (H," : 
-  //           ((type_subset[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
-  //       << type_subset[i].read_id << ")" << endl;
-  //}
-  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  //cout << cns << endl << endl;
-  //cout << "QSTRING" << endl;
-  //cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
+  std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
+  std::endl;
+  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
+    cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
+         << ((type_subset[i].tissue_type % 2) ? ", (H," : 
+             ((type_subset[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
+         << type_subset[i].read_id << ")" << endl;
+  }
+  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  cout << cns << endl << endl;
+  cout << "QSTRING" << endl;
+  cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
 
 
   //for(vector<int> v : align_counter) {
@@ -1236,8 +1237,19 @@ void BranchPointGroups::mergeBlocks(bp_block & to, bp_block & from) {
   // Find read in common between blocks.
   for(; (common_read = to.block.find(*f_it)) == to.block.end(); f_it++);
 
+  // correct for symetric blocks
+  int common_read_offset{common_read->offset}, f_it_offset{f_it->offset};
+  if (common_read->orientation == LEFT) {
+    int read_size = reads->getReadByIndex(common_read->read_id, common_read->tissue_type).size();
+      common_read_offset = (read_size - (common_read->offset + reads->getMinSuffixSize() + 1));
+  }
+  if (f_it->orientation == LEFT) {
+    int read_size = reads->getReadByIndex(f_it->read_id, f_it->tissue_type).size();
+      f_it_offset = (read_size - (f_it->offset + reads->getMinSuffixSize() + 1));
+  }
+
   // Adjust offsets to to block.
-  int adjustment = common_read->offset - f_it->offset;
+  int adjustment = common_read_offset - f_it_offset;
   for (set<read_tag, read_tag_compare>::iterator it = from.block.begin();
        it != from.block.end();
        it++) {
@@ -1323,12 +1335,12 @@ void BranchPointGroups::unifyBlocks(vector<bp_block> & seedBlocks) {
     }
   } while (mergeOccured);
 
-//  for (blockMergeStatus const& status : mTable) {
-//    if (!status.merged) { // blocks that never merged were merged to
-//      if (seedBlocks[status.id].size() < GSA2_CTR) continue;
-//      BreakPointBlocks.push_back(seedBlocks[status.id]);
-//    }
-//  }
+  for (blockMergeStatus const& status : mTable) {
+    if (!status.merged) { // blocks that never merged were merged to
+      if (seedBlocks[status.id].size() < CTR_GSA2) continue;
+      BreakPointBlocks.push_back(seedBlocks[status.id]);
+    }
+  }
 }
 
 unsigned int BranchPointGroups::getSize() {
