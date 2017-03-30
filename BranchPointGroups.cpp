@@ -1239,14 +1239,14 @@ void BranchPointGroups::mergeBlocks(bp_block & to, bp_block & from) {
 
   // correct for symetric blocks
   int common_read_offset{common_read->offset}, f_it_offset{f_it->offset};
-  if (common_read->orientation == LEFT) {
-    int read_size = reads->getReadByIndex(common_read->read_id, common_read->tissue_type).size();
-      common_read_offset = (read_size - (common_read->offset + reads->getMinSuffixSize() + 1));
-  }
-  if (f_it->orientation == LEFT) {
-    int read_size = reads->getReadByIndex(f_it->read_id, f_it->tissue_type).size();
-      f_it_offset = (read_size - (f_it->offset + reads->getMinSuffixSize() + 1));
-  }
+  //if (common_read->orientation == LEFT) {
+  //  int read_size = reads->getReadByIndex(common_read->read_id, common_read->tissue_type).size();
+  //    common_read_offset = (read_size - (common_read->offset + reads->getMinSuffixSize() + 1));
+  //}
+  //if (f_it->orientation == LEFT) {
+  //  int read_size = reads->getReadByIndex(f_it->read_id, f_it->tissue_type).size();
+  //    f_it_offset = (read_size - (f_it->offset + reads->getMinSuffixSize() + 1));
+  //}
 
   // Adjust offsets to to block.
   int adjustment = common_read_offset - f_it_offset;
@@ -1266,7 +1266,7 @@ void BranchPointGroups::unifyBlocks(vector<bp_block> & seedBlocks) {
   std::sort(
     seedBlocks.begin(), seedBlocks.end(), 
     [](bp_block const& a, bp_block const& b) {
-      return a.block.size() < b.block.size();
+      return a.block.size() > b.block.size(); // sort ascending
     }
   );
 
