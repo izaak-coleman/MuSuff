@@ -29,7 +29,7 @@ static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
 static const int READ_LENGTH = 80;
-static const int CTR_GSA1 = 1;
+static const int CTR_GSA1 = 4;
 static const int CTR_GSA2 = 4;
 
 
@@ -47,17 +47,20 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   cout << "No of extracted reads: " << CancerExtraction.size() << endl;
 
   // Group blocks covering same mutations in both orientations
-  cout << "Generating breakpoint blocks..." << endl;
+  cout << "Seeding breakpoint blocks by constructing GSA2..." << endl;
 //  makeBreakPointBlocks();
   seedBreakPointBlocks();
 //  outputFromBPB("/data/ic711/point4.txt");
+  cout << "Merging block seeds to form break point blocks" << endl;
+  cout << "Number of block seeds: " << BlockSeeds.size() << endl;
   unifyBlocks(BlockSeeds);
   BlockSeeds.clear();
-  printBreakPointBlocks();
-  //cout << "made " << BreakPointBlocks.size() << " blocks. " << endl;
-  //cout << "Adding non-mutated alleles to blocks." << endl;
+  printAlignedBlocks();
+  cout << "Number of break point blocks: " << BreakPointBlocks.size() << endl;
+  cout << "Adding non-mutated alleles to blocks." << endl;
   extractNonMutatedAlleles();
   //outputFromBPB("/data/ic711/point5.txt");
+  cout << "Finished break point block construction" << endl;
 }
 
 
@@ -728,7 +731,23 @@ string BranchPointGroups::reverseComplementString(string s){
 void BranchPointGroups::extractNonMutatedAlleles() {
 
   for (bp_block &block : BreakPointBlocks) {
-    read_tag tag = *block.block.begin();  // copy first element
+    //read_tag tag = *block.block.begin();  // copy first element
+    read_tag tag;
+
+    // short debug logic to determine if a non negative 
+    // offset value is used to generate the substring, 
+    // the subsequent algorithm fucntions correctly
+    // ulitmately this will not suffice as a solution,
+    // because it is possible the mergeing resulted
+    // in a single block with all negative offsets
+    set<read_tag, read_tag_compare>::iterator it = block.block.begin();
+    for(; it != block.block.end() && it->offset < 0; it++);
+    if (it == block.block.end()) {
+      continue;
+    } else {
+      tag = *it;
+    }
+
     string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
     read = read.substr(tag.offset, reads->getMinSuffixSize());
     string rev_read = reverseComplementString(read);
@@ -755,6 +774,7 @@ void BranchPointGroups::extractNonMutatedAlleles() {
 bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
     int &cns_offset, bool tissue_type, unsigned int &pair_id, 
     string & cns, string & qual) {
+
 
   // DEBUG BOOL
 
@@ -788,7 +808,9 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   int max_offset = 0;
   int min_offset = numeric_limits<int>::max();
 
-  // convert the offset indexes from LEFT to equivalent index in RIGHT
+  // LEFT reads are currently stored as RIGHT, with RIGHT offset
+  // Need to convert offset to LEFT for correct alignment 
+  // with the rest of the group
   for(read_tag &tag : type_subset) {
     if (tag.orientation == LEFT) {
       int read_size = reads->getReadByIndex(tag.read_id,
@@ -821,9 +843,10 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
 
   for(read_tag tag : type_subset) {
 
-
-    // if left, convert to right
-
+    // LEFT reads are stored as RIGHT, need to convert sequence
+    // to LEFT (reverse complement) as this is the orientation
+    // in which the read contained a 30bp overlap with the
+    // group
     string read;
     if(tag.orientation == LEFT) {
      read = reverseComplementString( 
@@ -916,7 +939,7 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   //if (cns == "" && type_subset.size() < 4) DEBUG_BOOL = true;
 
 
-  //// DEBUG
+  ////// DEBUG
   std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
   std::endl;
   cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
@@ -1238,18 +1261,35 @@ void BranchPointGroups::mergeBlocks(bp_block & to, bp_block & from) {
   for(; (common_read = to.block.find(*f_it)) == to.block.end(); f_it++);
 
   // correct for symetric blocks
+  // adjustment will only be correctly calculated if reads are both
+  // in the same orientation
   int common_read_offset{common_read->offset}, f_it_offset{f_it->offset};
-  //if (common_read->orientation == LEFT) {
-  //  int read_size = reads->getReadByIndex(common_read->read_id, common_read->tissue_type).size();
-  //    common_read_offset = (read_size - (common_read->offset + reads->getMinSuffixSize() + 1));
-  //}
-  //if (f_it->orientation == LEFT) {
-  //  int read_size = reads->getReadByIndex(f_it->read_id, f_it->tissue_type).size();
-  //    f_it_offset = (read_size - (f_it->offset + reads->getMinSuffixSize() + 1));
-  //}
+  if (common_read->orientation == LEFT) {
+    int read_size = reads->getReadByIndex(common_read->read_id, common_read->tissue_type).size();
+      common_read_offset = (read_size - (common_read->offset + reads->getMinSuffixSize() + 1));
+  }
+  if (f_it->orientation == LEFT) {
+    int read_size = reads->getReadByIndex(f_it->read_id, f_it->tissue_type).size();
+      f_it_offset = (read_size - (f_it->offset + reads->getMinSuffixSize() + 1));
+  }
 
   // Adjust offsets to to block.
+  // Orientation check performs the correct adjustment in either
+  // orientation.
   int adjustment = common_read_offset - f_it_offset;
+  cout << adjustment << endl;
+
+  for (set<read_tag, read_tag_compare>::iterator it = from.block.begin();
+      it != from.block.end();
+      it++) {
+    // convert to comparable orientation
+    int offset;
+    if (it->orientation == LEFT) {
+      it->offset = convertOffset(*it); // RIGHT->LEFT
+      it->offset += adjustment;
+      it->offset = convertOffset(*it); // LEFT->RIGHT
+    }
+  }
   for (set<read_tag, read_tag_compare>::iterator it = from.block.begin();
        it != from.block.end();
        it++) {
@@ -1260,6 +1300,11 @@ void BranchPointGroups::mergeBlocks(bp_block & to, bp_block & from) {
     }
     to.insert(*it);
   }
+}
+
+int convertOffset(read_tag const& tag) {
+  int sz = reads->getReadByIndex(tag.read_id, tag.tissue_type).size();
+  return sz - (tag.offset + reads->getMinSuffixSize() + 1);
 }
 
 void BranchPointGroups::unifyBlocks(vector<bp_block> & seedBlocks) {
@@ -1347,25 +1392,49 @@ unsigned int BranchPointGroups::getSize() {
   return BreakPointBlocks.size();
 }
 
+void BranchPointGroups::printAlignedBlocks() {
+  int max = 0;
+  for (bp_block const& block : BreakPointBlocks) {
+    cout << "block id: " << block.id << endl;
+    cout << "block size" << block.block.size() << endl;
 
-
-void BranchPointGroups::printBreakPointBlocks() {
-  int i=1;
-  for(bp_block block : BreakPointBlocks) {
-    cout << i << "th block: " << endl;
-    cout << "block size" << block.size() << endl;
-    for (read_tag tag: block.block) {
-      cout << ((tag.tissue_type) ? "Healthy" : "Cancer") 
-        << endl << "read_id: " << tag.read_id << endl
-        << "offset: " << tag.offset << endl
-        << ((tag.orientation) ? "RIGHT" : "LEFT" ) << endl;
-      cout << reads->getReadByIndex(tag.read_id, tag.tissue_type) << endl;
+    for (read_tag tag : block.block) {
+      if (tag.offset > max) {
+        max = tag.offset;
+      } 
     }
 
-    cout << "End of block: -----------------------------------------" << endl;
-    i++;
+    for (read_tag tag : block.block) {
+      string read;
+      if (tag.orientation == LEFT) {
+        int read_size = reads->getReadByIndex(tag.read_id,
+            tag.tissue_type).size();
+        tag.offset = (read_size - (tag.offset + reads->getMinSuffixSize() + 1));
+        read = reverseComplementString(reads->getReadByIndex(tag.read_id, tag.tissue_type));
+      } else {
+        read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
+        read.pop_back();
+      }
+      cout << addGaps(max - tag.offset) << read << endl;
+    }
   }
 }
+
+//void BranchPointGroups::printBreakPointBlocks() {
+//  for(bp_block block : BreakPointBlocks) {
+//    cout << "Block id: " << block.id << endl;
+//    cout << "block size" << block.size() << endl;
+//    for (read_tag tag: block.block) {
+//      cout << ((tag.tissue_type) ? "Healthy" : "Cancer") 
+//        << endl << "read_id: " << tag.read_id << endl
+//        << "offset: " << tag.offset << endl
+//        << ((tag.orientation) ? "RIGHT" : "LEFT" ) << endl;
+//      cout << reads->getReadByIndex(tag.read_id, tag.tissue_type) << endl;
+//    }
+//
+//    cout << "End of block: -----------------------------------------" << endl;
+//  }
+//}
 
 
 //void BranchPointGroups::extractMutationSites() {
