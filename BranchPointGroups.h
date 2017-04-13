@@ -197,6 +197,9 @@ private:
   void mergeBlocks(bp_block & to, bp_block & from);
 
   void unifyBlocks(std::vector<bp_block> & seedBlocks);
+
+  int convertOffset(read_tag const& tag);
+  // converts offsets from LEFT and RIGHT orientation
   
 
 public:
@@ -217,6 +220,8 @@ public:
 
   void printBreakPointBlocks();
   // Prints out each of the breakpoint groups, type and read index
+
+  void printAlignedBlocks();
 
 
 
