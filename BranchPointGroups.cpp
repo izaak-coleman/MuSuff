@@ -1260,17 +1260,36 @@ void BranchPointGroups::mergeBlocks(bp_block & to, bp_block & from) {
   // Find read in common between blocks.
   for(; (common_read = to.block.find(*f_it)) == to.block.end(); f_it++);
 
+  // The orientation associated with each read, is its aligning orientation
+  // relative to its current block. At this moment in time, the final
+  // orientation (which we consider the orientation relative to the reference)
+  // is unknown. Therefore, if the common read is in opposite orientations
+  // in the from and to block, the orientations of each read in the
+  // from block needs to be switched.
+  if (common_read->orientation != f_it->orientation) {
+    for(set<read_tag, read_tag_compare>::iterator it = from.block.begin();
+        it != from.block.end(); it++) {
+      if (it->orientation == LEFT) {
+        it->orientation = RIGHT;
+      } else {
+        it->orientation = LEFT;
+      }
+    }
+  }
+
   // correct for symetric blocks
   // adjustment will only be correctly calculated if reads are both
   // in the same orientation
   int common_read_offset{common_read->offset}, f_it_offset{f_it->offset};
   if (common_read->orientation == LEFT) {
-    int read_size = reads->getReadByIndex(common_read->read_id, common_read->tissue_type).size();
-      common_read_offset = (read_size - (common_read->offset + reads->getMinSuffixSize() + 1));
+    //int read_size = reads->getReadByIndex(common_read->read_id, common_read->tissue_type).size();
+    //  common_read_offset = (read_size - (common_read->offset + reads->getMinSuffixSize() + 1));
+    common_read_offset = convertOffset(*common_read);
   }
   if (f_it->orientation == LEFT) {
-    int read_size = reads->getReadByIndex(f_it->read_id, f_it->tissue_type).size();
-      f_it_offset = (read_size - (f_it->offset + reads->getMinSuffixSize() + 1));
+    //int read_size = reads->getReadByIndex(f_it->read_id, f_it->tissue_type).size();
+    //  f_it_offset = (read_size - (f_it->offset + reads->getMinSuffixSize() + 1));
+    f_it_offset = convertOffset(*f_it);
   }
 
   // Adjust offsets to to block.
@@ -1288,21 +1307,23 @@ void BranchPointGroups::mergeBlocks(bp_block & to, bp_block & from) {
       it->offset = convertOffset(*it); // RIGHT->LEFT
       it->offset += adjustment;
       it->offset = convertOffset(*it); // LEFT->RIGHT
-    }
-  }
-  for (set<read_tag, read_tag_compare>::iterator it = from.block.begin();
-       it != from.block.end();
-       it++) {
-    if (it->orientation == RIGHT) {
-      it->offset += adjustment;
     } else {
-      it->offset -= adjustment;
+      it->offset += adjustment;
     }
     to.insert(*it);
   }
+  //for (set<read_tag, read_tag_compare>::iterator it = from.block.begin();
+  //     it != from.block.end();
+  //     it++) {
+  //  if (it->orientation == RIGHT) {
+  //    it->offset += adjustment;
+  //  } else {
+  //    it->offset -= adjustment;
+  //  }
+
 }
 
-int convertOffset(read_tag const& tag) {
+int BranchPointGroups::convertOffset(read_tag const& tag) {
   int sz = reads->getReadByIndex(tag.read_id, tag.tissue_type).size();
   return sz - (tag.offset + reads->getMinSuffixSize() + 1);
 }
@@ -1394,28 +1415,30 @@ unsigned int BranchPointGroups::getSize() {
 
 void BranchPointGroups::printAlignedBlocks() {
   int max = 0;
-  for (bp_block const& block : BreakPointBlocks) {
+  vector<bp_block> BreakPointBlocksCopy(BreakPointBlocks);
+  for (bp_block block : BreakPointBlocksCopy) {
+
+    for (read_tag tag : block.block) {
+      if (tag.orientation == LEFT) {
+        tag.offset = convertOffset(tag);
+      }
+      if (tag.offset > max) {
+        max = tag.offset;
+      }
+    }
+
     cout << "block id: " << block.id << endl;
     cout << "block size" << block.block.size() << endl;
 
     for (read_tag tag : block.block) {
-      if (tag.offset > max) {
-        max = tag.offset;
-      } 
-    }
-
-    for (read_tag tag : block.block) {
       string read;
       if (tag.orientation == LEFT) {
-        int read_size = reads->getReadByIndex(tag.read_id,
-            tag.tissue_type).size();
-        tag.offset = (read_size - (tag.offset + reads->getMinSuffixSize() + 1));
         read = reverseComplementString(reads->getReadByIndex(tag.read_id, tag.tissue_type));
       } else {
         read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
         read.pop_back();
       }
-      cout << addGaps(max - tag.offset) << read << endl;
+      cout << addGaps(max - tag.offset) << read << " - " << tag.offset << endl;
     }
   }
 }
