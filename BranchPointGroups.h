@@ -18,7 +18,7 @@
 struct read_tag{
   unsigned int read_id;
   mutable int offset;
-  bool orientation;
+  mutable bool orientation;
   int tissue_type;
 };
 
