@@ -28,8 +28,8 @@ using namespace std;
 static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
 static const int COVERAGE_UPPER_THRESHOLD = 80;
-static const int READ_LENGTH = 80;
-static const int CTR_GSA1 = 4;
+static const int READ_LENGTH = 100;
+static const int CTR_GSA1 = 1;
 static const int CTR_GSA2 = 4;
 
 
@@ -48,14 +48,17 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 
   // Group blocks covering same mutations in both orientations
   cout << "Seeding breakpoint blocks by constructing GSA2..." << endl;
-//  makeBreakPointBlocks();
+  //  makeBreakPointBlocks();
   seedBreakPointBlocks();
-//  outputFromBPB("/data/ic711/point4.txt");
+  //  outputFromBPB("/data/ic711/point4.txt");
   cout << "Merging block seeds to form break point blocks" << endl;
   cout << "Number of block seeds: " << BlockSeeds.size() << endl;
-  unifyBlocks(BlockSeeds);
-  BlockSeeds.clear();
-  printAlignedBlocks();
+
+  // Loss of sensitivity by way of 2
+  //unifyBlocks(BlockSeeds);
+  //BlockSeeds.clear();
+  //printAlignedBlocks();
+  // buildCancerCNS()
   cout << "Number of break point blocks: " << BreakPointBlocks.size() << endl;
   cout << "Adding non-mutated alleles to blocks." << endl;
   extractNonMutatedAlleles();
@@ -350,86 +353,6 @@ int BranchPointGroups::computeLCP(read_tag const& a, read_tag const& b) {
   return lcp;
 }
 
-//int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
-//  string::const_iterator a_it, b_it, a_end, b_end;
-//  const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
-//  const string &bstr = reads->getReadByIndex(b.read_id, TUMOUR);
-//
-//  int a_inc, b_inc;
-//  bool a_rc = false, b_rc = false;
-//
-//  if (a.orientation == RIGHT) {
-//    a_it = astr.begin() + a.offset;
-//    a_end = astr.end();
-//    a_inc = 1;
-//  }
-//  else { 
-//    a_it = astr.begin() + a.offset + reads->getMinSuffixSize() - 1;
-//    a_end = astr.begin();
-//    a_inc = -1;
-//    a_rc = true;
-//
-//  }
-//
-//  if (b.orientation == RIGHT) {
-//    b_it = bstr.begin() + b.offset;
-//    b_end = bstr.end();
-//    b_inc = 1;
-//  }
-//  else {
-//    b_it = bstr.begin() + b.offset + reads->getMinSuffixSize() - 1;
-//    b_end = bstr.begin();
-//    b_inc = -1;
-//    b_rc = true;
-//  }
-//
-//  for(; revCompCharacter(*a_it, a_rc) == revCompCharacter(*b_it, b_rc) &&
-//        b_it != b_end &&
-//        a_it != a_end; 
-//        a_it += a_inc, b_it += b_inc, lcp++);
-//
-//}
-
-
-//int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
-//  string::const_iterator a_it, b_it, a_end, b_end;
-//  const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
-//  const string &bstr = reads->getReadByIndex(b.read_id, TUMOUR);
-//  int a_inc, b_inc;
-//  bool a_rc = false, b_rc = false;
-//
-//  if (a.orientation == RIGHT) {
-//    a_it = astr.begin() + a.offset;
-//    a_end = astr.end();
-//    a_inc = 1;
-//  }
-//  else {
-//    a_it = astr.end() - 2 - a.offset; // 2 avoids dollar symbol
-//    a_end = astr.begin();
-//    a_inc = -1;
-//    a_rc = true;
-//  }
-//
-//  if (b.orientation == RIGHT) {
-//    b_it = bstr.begin() + b.offset;
-//    b_end = bstr.end();
-//    b_inc = 1;
-//  }
-//  else {
-//    b_it = bstr.end() - 2 - b.offset; // 2 avoids dollar symbol
-//    b_end = bstr.begin();
-//    b_inc = -1;
-//    b_rc = true;
-//  }
-//
-//  int lcp = 0;
-//  for(; revCompCharacter(*a_it, a_rc) == revCompCharacter(*b_it, b_rc) &&
-//        b_it != b_end &&
-//        a_it != a_end; 
-//        a_it += a_inc, b_it += b_inc, lcp++);
-//
-//  return lcp;
-//}
 
 char BranchPointGroups::revCompCharacter(char ch, bool rc) {
   if (!rc) return ch;
@@ -459,7 +382,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
       extension++;
       if (extension == gsa.size()) break;
     }
-    // Make alloc if group above CTR
+    // Make alloc if group at or above CTR
     if (extension - seed_index >= CTR_GSA2) {
       for (int i=seed_index; i < extension; i++) block.block.insert(gsa[i]); 
     }
@@ -470,7 +393,8 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
   
     // Load group into break point blocks
     block.id = block_id;
-    BlockSeeds.push_back(block);
+    //BlockSeeds.push_back(block);     // for loss of sensitivity by way of 2
+    BreakPointBlocks.push_back(block);
     block_id++;
     seed_index = extension++;
   }
@@ -479,7 +403,8 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
     bp_block block;
     block.block.insert(gsa[seed_index]);
     block.id = block_id;
-    BlockSeeds.push_back(block);
+    //BlockSeeds.push_back(block);      // for loss of sensitivity by way of 2
+    BreakPointBlocks.push_back(block);
   }
 }
 
@@ -529,112 +454,6 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
 //  }
 //}
 
-void BranchPointGroups::makeBreakPointBlocks(){
-  if(CancerExtraction.size() == 0) {
-    cout << "No mutations were identified " << endl;
-    exit(1);
-  }
- 
-
-  std::hash<std::string> hash;
-  multimap<string, read_tag> mutation_grouper;
-
-  for(unsigned int read_index : CancerExtraction) {
-    string cancer_read = reads->getReadByIndex(read_index, TUMOUR);
-    for(int i=0; i < cancer_read.size()-30; i++) {    // make 30bp fwd/rev
-
-      pair<string, read_tag> fwd_key_val, rev_key_val;
-
-      // forward and reverse pair of each 30pb window
-      string sub_str_fwd = cancer_read.substr(i, 30);
-      string sub_str_rev = reverseComplementString(sub_str_fwd);
-      unsigned long long fwd_hash, rev_hash;
-      fwd_hash = hash(sub_str_fwd);
-      rev_hash = hash(sub_str_rev);
-    
-
-      // init forward tag
-      read_tag fwd_tag;
-      fwd_tag.read_id = read_index;
-      fwd_tag.offset = i;
-      fwd_tag.orientation = RIGHT;
-      fwd_tag.tissue_type = TUMOUR;
-
-      // init reverse tag
-      read_tag rev_tag;
-      rev_tag.read_id = read_index;
-      rev_tag.offset = i;
-      rev_tag.orientation = LEFT;
-      rev_tag.tissue_type = TUMOUR;
-
-      // make pairs and load into map
-      fwd_key_val.first = sub_str_fwd;
-      fwd_key_val.second = fwd_tag;
-
-      rev_key_val.first = sub_str_rev;
-      rev_key_val.second = rev_tag;
-
-      mutation_grouper.insert(fwd_key_val);
-      mutation_grouper.insert(rev_key_val);
-
-    }
- }
-
-  // now loaded into map, extract blocks
-  bp_block block;
-
-  multimap<string, read_tag>::iterator it = mutation_grouper.begin();  
-
-  unsigned int block_id = 0;
-  while(it != std::prev(mutation_grouper.end())){
-    bool left_mate = false, right_mate = false;
-
-    if(it->first == std::next(it)->first) { // then same genomic location
-
-      string seed = it->first;
-      block.insert(it->second);           
-
-      if(it->second.orientation) {
-        right_mate = true;
-      }
-      else {
-        left_mate = true;  
-      }
-
-      // extend group, all equal to seed
-      it++;  
-      while(seed == it->first) {
-        block.insert(it->second);
-
-        if(it->second.orientation) {
-          right_mate = true;
-        }
-        else {
-          left_mate = true;
-        }
-
-        it++;
-        if(it == mutation_grouper.end()) {break;}
-      }    
-    
-      // only extract double orientation groups with CTR 4
-      if(/*left_mate & right_mate && */ block.size() >= 4) {
-        block.id = block_id;
-        BreakPointBlocks.push_back(block);
-        block_id++;
-      }
-
-      block.clear();
-    }
-
-    else {
-      it++;
-    }
-
-    if(it == mutation_grouper.end()) {break;}
-  }
-
-}
 
 
 
@@ -671,82 +490,28 @@ string BranchPointGroups::reverseComplementString(string s){
 }
 
 
-//void BranchPointGroups::extractNonMutatedAlleles() {
-//// NB: When we perform integer grouping, this will have be be performed
-//// in forward and reverse orientation
-//
-//  // only need to seach overlap in each orientation, rather than whole set
-//  // because the sequence is identical
-//  bool searched_forward = false, searched_reverse = false;
-//
-//  for(bp_block &block : BreakPointBlocks) {
-//
-//    if(searched_forward && searched_reverse) {  // finished search
-//      break;
-//    }
-//
-//    for(read_tag tag : block.block) {
-//      if(searched_forward && (tag.orientation == RIGHT)) { // done fwd search
-//        continue;
-//      }
-//      if(searched_reverse && (tag.orientation == LEFT)) {
-//        continue;
-//      }
-//
-//      // if passed here, we will begin extracting the non mutated reads
-//      // that also share the same 30bp alignment with the group in 
-//      // both orientations, 
-//
-//      // get the read the tag represents
-//      string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
-//
-//      // get the alligned section
-//      string aligned_section = read.substr(tag.offset, 30);
-//
-//      long long int index = binarySearch(aligned_section); // MAYBE SWITCH FOr REGULAR BS
-//      if(index == -1) {
-//        cout << "Binary search failed for block: " << block.id << endl;
-//        cout << "Searching on: " << ((tag.orientation == RIGHT) ?  "RIGHT" :
-//          "LEFT") << endl;
-//      }
-//      else {
-//        extendBlock(index, block.block, tag.orientation); // h reads assigned to same or
-//      }
-//
-//      // update search switches
-//      if(tag.orientation == RIGHT) {
-//        searched_forward = true;
-//      }
-//      else {
-//        searched_reverse = true;
-//      }
-//    }
-//
-//    searched_forward = false;
-//    searched_reverse = false;
-//
-//  }
-//}
 
 void BranchPointGroups::extractNonMutatedAlleles() {
+//// NB: When we perform integer grouping, this will have be be performed
+//// in forward and reverse orientation
 
   for (bp_block &block : BreakPointBlocks) {
     //read_tag tag = *block.block.begin();  // copy first element
     read_tag tag;
 
-    // short debug logic to determine if a non negative 
-    // offset value is used to generate the substring, 
-    // the subsequent algorithm fucntions correctly
-    // ulitmately this will not suffice as a solution,
-    // because it is possible the mergeing resulted
-    // in a single block with all negative offsets
-    set<read_tag, read_tag_compare>::iterator it = block.block.begin();
-    for(; it != block.block.end() && it->offset < 0; it++);
-    if (it == block.block.end()) {
-      continue;
-    } else {
-      tag = *it;
-    }
+    //// short debug logic to determine if a non negative 
+    //// offset value is used to generate the substring, 
+    //// the subsequent algorithm fucntions correctly
+    //// ulitmately this will not suffice as a solution,
+    //// because it is possible the mergeing resulted
+    //// in a single block with all negative offsets
+    //set<read_tag, read_tag_compare>::iterator it = block.block.begin();
+    //for(; it != block.block.end() && it->offset < 0; it++);
+    //if (it == block.block.end()) {
+    //  continue;
+    //} else {
+    //  tag = *it;
+    //}
 
     string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
     read = read.substr(tag.offset, reads->getMinSuffixSize());
@@ -770,6 +535,8 @@ void BranchPointGroups::extractNonMutatedAlleles() {
     }
   }
 }
+
+
 
 bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
     int &cns_offset, bool tissue_type, unsigned int &pair_id, 
@@ -1447,6 +1214,23 @@ void BranchPointGroups::printAlignedBlocks() {
     }
   }
 }
+
+//void BranchPointGroups::buildConsensusPairs() {
+//  for (bp_block block : BreakPointBlocks) {
+//    cns_pair pair = buildConsensusPair(block);
+//    gmp->consensus_pairs.push_back(pair);
+//  }
+//}
+//
+//void BranchPointGroups::buildConsensusPair(bp_block & block) {
+//  consensus_pair pair;
+//  generateConsensus(pair.ccns, pair.cqual, block, TUMOUR);
+//  findHealthyReads(pair.ccns, pair.cqual, block);
+//  generateConsnsus(pair.hcns, pair.hqual, block, HEALTHY);
+//  trimCancerConsensus(pair);
+//  maskLowQualityPositions(pair);
+//  gmp->consensus_pairs.push_back(pair);
+//}
 
 //void BranchPointGroups::printAlignedBlocks() {
 //  for (bp_block const & block : BreakPointBlocks) {
@@ -2643,4 +2427,247 @@ void BranchPointGroups::printAlignedBlocks() {
 //
 //
 //  return false;   // didnt find a match
+//}
+
+//int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
+//  string::const_iterator a_it, b_it, a_end, b_end;
+//  const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
+//  const string &bstr = reads->getReadByIndex(b.read_id, TUMOUR);
+//
+//  int a_inc, b_inc;
+//  bool a_rc = false, b_rc = false;
+//
+//  if (a.orientation == RIGHT) {
+//    a_it = astr.begin() + a.offset;
+//    a_end = astr.end();
+//    a_inc = 1;
+//  }
+//  else { 
+//    a_it = astr.begin() + a.offset + reads->getMinSuffixSize() - 1;
+//    a_end = astr.begin();
+//    a_inc = -1;
+//    a_rc = true;
+//
+//  }
+//
+//  if (b.orientation == RIGHT) {
+//    b_it = bstr.begin() + b.offset;
+//    b_end = bstr.end();
+//    b_inc = 1;
+//  }
+//  else {
+//    b_it = bstr.begin() + b.offset + reads->getMinSuffixSize() - 1;
+//    b_end = bstr.begin();
+//    b_inc = -1;
+//    b_rc = true;
+//  }
+//
+//  for(; revCompCharacter(*a_it, a_rc) == revCompCharacter(*b_it, b_rc) &&
+//        b_it != b_end &&
+//        a_it != a_end; 
+//        a_it += a_inc, b_it += b_inc, lcp++);
+//
+//}
+
+
+//int BranchPointGroups::computeLCP(read_tag a, read_tag b) {
+//  string::const_iterator a_it, b_it, a_end, b_end;
+//  const string &astr = reads->getReadByIndex(a.read_id, TUMOUR);
+//  const string &bstr = reads->getReadByIndex(b.read_id, TUMOUR);
+//  int a_inc, b_inc;
+//  bool a_rc = false, b_rc = false;
+//
+//  if (a.orientation == RIGHT) {
+//    a_it = astr.begin() + a.offset;
+//    a_end = astr.end();
+//    a_inc = 1;
+//  }
+//  else {
+//    a_it = astr.end() - 2 - a.offset; // 2 avoids dollar symbol
+//    a_end = astr.begin();
+//    a_inc = -1;
+//    a_rc = true;
+//  }
+//
+//  if (b.orientation == RIGHT) {
+//    b_it = bstr.begin() + b.offset;
+//    b_end = bstr.end();
+//    b_inc = 1;
+//  }
+//  else {
+//    b_it = bstr.end() - 2 - b.offset; // 2 avoids dollar symbol
+//    b_end = bstr.begin();
+//    b_inc = -1;
+//    b_rc = true;
+//  }
+//
+//  int lcp = 0;
+//  for(; revCompCharacter(*a_it, a_rc) == revCompCharacter(*b_it, b_rc) &&
+//        b_it != b_end &&
+//        a_it != a_end; 
+//        a_it += a_inc, b_it += b_inc, lcp++);
+//
+//  return lcp;
+//}
+
+void BranchPointGroups::makeBreakPointBlocks(){
+  if(CancerExtraction.size() == 0) {
+    cout << "No mutations were identified " << endl;
+    exit(1);
+  }
+ 
+
+  std::hash<std::string> hash;
+  multimap<string, read_tag> mutation_grouper;
+
+  for(unsigned int read_index : CancerExtraction) {
+    string cancer_read = reads->getReadByIndex(read_index, TUMOUR);
+    for(int i=0; i < cancer_read.size()-30; i++) {    // make 30bp fwd/rev
+
+      pair<string, read_tag> fwd_key_val, rev_key_val;
+
+      // forward and reverse pair of each 30pb window
+      string sub_str_fwd = cancer_read.substr(i, 30);
+      string sub_str_rev = reverseComplementString(sub_str_fwd);
+      unsigned long long fwd_hash, rev_hash;
+      fwd_hash = hash(sub_str_fwd);
+      rev_hash = hash(sub_str_rev);
+    
+
+      // init forward tag
+      read_tag fwd_tag;
+      fwd_tag.read_id = read_index;
+      fwd_tag.offset = i;
+      fwd_tag.orientation = RIGHT;
+      fwd_tag.tissue_type = TUMOUR;
+
+      // init reverse tag
+      read_tag rev_tag;
+      rev_tag.read_id = read_index;
+      rev_tag.offset = i;
+      rev_tag.orientation = LEFT;
+      rev_tag.tissue_type = TUMOUR;
+
+      // make pairs and load into map
+      fwd_key_val.first = sub_str_fwd;
+      fwd_key_val.second = fwd_tag;
+
+      rev_key_val.first = sub_str_rev;
+      rev_key_val.second = rev_tag;
+
+      mutation_grouper.insert(fwd_key_val);
+      mutation_grouper.insert(rev_key_val);
+
+    }
+ }
+
+  // now loaded into map, extract blocks
+  bp_block block;
+
+  multimap<string, read_tag>::iterator it = mutation_grouper.begin();  
+
+  unsigned int block_id = 0;
+  while(it != std::prev(mutation_grouper.end())){
+    bool left_mate = false, right_mate = false;
+
+    if(it->first == std::next(it)->first) { // then same genomic location
+
+      string seed = it->first;
+      block.insert(it->second);           
+
+      if(it->second.orientation) {
+        right_mate = true;
+      }
+      else {
+        left_mate = true;  
+      }
+
+      // extend group, all equal to seed
+      it++;  
+      while(seed == it->first) {
+        block.insert(it->second);
+
+        if(it->second.orientation) {
+          right_mate = true;
+        }
+        else {
+          left_mate = true;
+        }
+
+        it++;
+        if(it == mutation_grouper.end()) {break;}
+      }    
+    
+      // only extract double orientation groups with CTR 4
+      if(/*left_mate & right_mate && */ block.size() >= 4) {
+        block.id = block_id;
+        BreakPointBlocks.push_back(block);
+        block_id++;
+      }
+
+      block.clear();
+    }
+
+    else {
+      it++;
+    }
+
+    if(it == mutation_grouper.end()) {break;}
+  }
+
+}
+
+//void BranchPointGroups::extractNonMutatedAlleles() {
+//
+//  // only need to seach overlap in each orientation, rather than whole set
+//  // because the sequence is identical
+//  bool searched_forward = false, searched_reverse = false;
+//
+//  for(bp_block &block : BreakPointBlocks) {
+//
+//    if(searched_forward && searched_reverse) {  // finished search
+//      break;
+//    }
+//
+//    for(read_tag tag : block.block) {
+//      if(searched_forward && (tag.orientation == RIGHT)) { // done fwd search
+//        continue;
+//      }
+//      if(searched_reverse && (tag.orientation == LEFT)) {
+//        continue;
+//      }
+//
+//      // if passed here, we will begin extracting the non mutated reads
+//      // that also share the same 30bp alignment with the group in 
+//      // both orientations, 
+//
+//      // get the read the tag represents
+//      string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
+//
+//      // get the alligned section
+//      string aligned_section = read.substr(tag.offset, 30);
+//
+//      long long int index = binarySearch(aligned_section); // MAYBE SWITCH FOr REGULAR BS
+//      if(index == -1) {
+//        cout << "Binary search failed for block: " << block.id << endl;
+//        cout << "Searching on: " << ((tag.orientation == RIGHT) ?  "RIGHT" :
+//          "LEFT") << endl;
+//      }
+//      else {
+//        extendBlock(index, block.block, tag.orientation); // h reads assigned to same or
+//      }
+//
+//      // update search switches
+//      if(tag.orientation == RIGHT) {
+//        searched_forward = true;
+//      }
+//      else {
+//        searched_reverse = true;
+//      }
+//    }
+//
+//    searched_forward = false;
+//    searched_reverse = false;
+//
+//  }
 //}
