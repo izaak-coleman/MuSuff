@@ -13,6 +13,7 @@
 #include <thread>
 #include <mutex>
 #include <cstdlib> // exit
+#include <functional>
 
 #include "radix.h"
 #include "util_funcs.h"
@@ -59,11 +60,139 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   //BlockSeeds.clear();
   //printAlignedBlocks();
   // buildCancerCNS()
+  //for (bp_block const& block : BreakPointBlocks) {
+  //  int offset, pair_id;
+  //  string cns, qual;
+  //  generateConsensusSequence(TUMOUR, block, offset, pair_id, cns, qual);
+  //  cout << "Offset: " << offset << endl;
+  //  cout << "Pair id: " << pair_id << endl;
+  //      
+  //} 
   cout << "Number of break point blocks: " << BreakPointBlocks.size() << endl;
   cout << "Adding non-mutated alleles to blocks." << endl;
   extractNonMutatedAlleles();
   //outputFromBPB("/data/ic711/point5.txt");
   cout << "Finished break point block construction" << endl;
+}
+
+void BranchPointGroups::generateConsensusSequence(bool tissue,
+    bp_block const& block, int & cns_offset, int & pair_id, string & cns,
+    string & qual) {
+
+  std::vector<read_tag> subBlock;            // work with subset
+  for (read_tag const& tag : block.block) {
+    if (tissue == HEALTHY  && 
+       (tag.tissue_type == HEALTHY || tag.tissue_type == SWITCHED)) {
+      subBlock.push_back(tag);
+    }
+    else if(tissue == TUMOUR && tag.tissue_type == TUMOUR) {
+      subBlock.push_back(tag);
+    }
+  }
+
+  cout << "seg fault after here" << endl;
+  int max_offset = 0;
+  int min_offset = std::numeric_limits<int>::max();
+  for (read_tag &tag : subBlock) {
+    if (tag.orientation == LEFT) {
+      tag.offset = convertOffset(tag);
+    }
+    if (tag.offset > max_offset) {
+      max_offset = tag.offset;
+    }
+    if (tag.offset < min_offset) {
+      min_offset = tag.offset;
+    }
+  }
+  // value did not change and will cause std::bad_alloc, so set to 0
+  if(min_offset == std::numeric_limits<int>::max()) {
+    min_offset = 0;
+  }
+
+  vector<string> alignedBlock;
+  vector< vector<int> > cnsCount;
+  for (int n_vectors=0; n_vectors < 4; n_vectors++) {
+    vector<int> v(max_offset + READ_LENGTH - min_offset, 0);
+    cnsCount.push_back(v);
+  }
+
+  for (read_tag const & tag : subBlock) {
+    std::string read;
+    if(tag.orientation == LEFT) {
+      read = reverseComplementString( 
+         reads->getReadByIndex(tag.read_id, tag.tissue_type)
+         );
+    }
+    else {
+      read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
+      read.pop_back();    // remove dollar symbol
+    }
+    for(int i=0; i < read.size(); i++) {
+      switch(read[i]) {
+        case 'A':
+          cnsCount[0][(max_offset - tag.offset) + i]++; break;
+        case 'T':
+          cnsCount[1][(max_offset - tag.offset) + i]++; break;
+        case 'C':
+          cnsCount[2][(max_offset - tag.offset) + i]++; break;
+        case 'G':
+          cnsCount[3][(max_offset - tag.offset) + i]++; break;
+      }
+    }
+    alignedBlock.push_back(addGaps(max_offset - tag.offset) + read);
+  }
+
+  for (int pos=0; pos < cnsCount[0].size(); pos++) {
+    int maxVal = 0, maxInd = 0;
+
+    // find highest freq. base
+    for(int base=0; base < 4; base++) {
+      if (cnsCount[base][pos] > maxVal) {
+        maxVal = cnsCount[base][pos];
+        maxInd = base;
+      }
+    }
+    switch(maxInd) {
+      case 0:
+        cns += "A"; break;
+      case 1:
+        cns += "T"; break;
+      case 2:
+        cns += "C"; break;
+      case 3:
+        cns += "G"; break;
+    }
+  }
+  if (cns.empty()) {
+    /// return something;
+  }
+  cns_offset = max_offset;
+  pair_id = block.id;
+  qual = buildQualityString(cnsCount, cns, tissue);
+  for (int pos=0; pos < cnsCount[0].size(); pos++) {
+    // mask all positions with reads less than >= TRIM_VALUE
+    int nreads=0;
+    for (int base=0; base < 4; base++) {
+      nreads += cnsCount[base][pos];
+    }
+    if (nreads < TRIM_VALUE) {
+      qual[pos] = 'L';
+    }
+  }
+  ////// DEBUG
+  std::cout << ((tissue) ? "Healthy" : "Cancer") << " sub-block below" <<
+  std::endl;
+  std::cout << "Block id: " << block.id  << std::endl;
+  for (int i=0; i < alignedBlock.size(); i++) { // SHOW ALIGNED BLOCK
+    std::cout << alignedBlock[i]  << ((subBlock[i].orientation == RIGHT) ? ", R" : ", L") 
+         << ((subBlock[i].tissue_type % 2) ? ", (H," : 
+             ((subBlock[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
+         << subBlock[i].read_id << ")" << std::endl;
+  }
+  std::cout << "CONSENSUS AND CNS LEN" <<  cns.size() << std::endl;
+  std::cout << cns << std::endl << std::endl;
+  std::cout << "QSTRING" << std::endl;
+  std::cout << qual << std::endl;
 }
 
 
@@ -491,13 +620,13 @@ string BranchPointGroups::reverseComplementString(string s){
 
 
 
+
 void BranchPointGroups::extractNonMutatedAlleles() {
 //// NB: When we perform integer grouping, this will have be be performed
 //// in forward and reverse orientation
 
   for (bp_block &block : BreakPointBlocks) {
-    //read_tag tag = *block.block.begin();  // copy first element
-    read_tag tag;
+    read_tag tag = *block.block.begin();  // copy first element
 
     //// short debug logic to determine if a non negative 
     //// offset value is used to generate the substring, 
@@ -505,6 +634,7 @@ void BranchPointGroups::extractNonMutatedAlleles() {
     //// ulitmately this will not suffice as a solution,
     //// because it is possible the mergeing resulted
     //// in a single block with all negative offsets
+    // read_tag tag;
     //set<read_tag, read_tag_compare>::iterator it = block.block.begin();
     //for(; it != block.block.end() && it->offset < 0; it++);
     //if (it == block.block.end()) {
@@ -706,29 +836,29 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   //if (cns == "" && type_subset.size() < 4) DEBUG_BOOL = true;
 
 
-  ////// DEBUG
-  std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
-  std::endl;
-  cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
-  for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
-    cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
-         << ((type_subset[i].tissue_type % 2) ? ", (H," : 
-             ((type_subset[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
-         << type_subset[i].read_id << ")" << endl;
-  }
-  cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
-  cout << cns << endl << endl;
-  cout << "QSTRING" << endl;
-  cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
-
-
-  //for(vector<int> v : align_counter) {
-  //  for(int i : v) {
-  //    cout << i << ",";
-  //  }
-  //  cout << endl;
+  //////// DEBUG
+  //std::cout << ((tissue_type) ? "Healthy" : "Cancer") << " sub-block below" <<
+  //std::endl;
+  //cout << "Block id: " << BreakPointBlocks[block_idx].id  << endl;
+  //for (int i=0; i < aligned_block.size(); i++) { // SHOW ALIGNED BLOCK
+  //  cout << aligned_block[i]  << ((type_subset[i].orientation == RIGHT) ? ", R" : ", L") 
+  //       << ((type_subset[i].tissue_type % 2) ? ", (H," : 
+  //           ((type_subset[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
+  //       << type_subset[i].read_id << ")" << endl;
   //}
-  //cout << endl;
+  //cout << "CONSENSUS AND CNS LEN" <<  cns.size() << endl;
+  //cout << cns << endl << endl;
+  //cout << "QSTRING" << endl;
+  //cout << buildQualityString(align_counter, cns,  tissue_type) << endl;
+
+
+  ////for(vector<int> v : align_counter) {
+  ////  for(int i : v) {
+  ////    cout << i << ",";
+  ////  }
+  ////  cout << endl;
+  ////}
+  ////cout << endl;
   
 
   // set the offset value

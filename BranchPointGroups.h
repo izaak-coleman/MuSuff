@@ -48,6 +48,7 @@ struct read_tag_compare{
 };
 
 
+
 // Moved the break point blocks from vector<set<read_tag, read_tag_compare>>
 // to a struct, allowing a block id to carried with each break point block
 // this is used for development purposes and will be redundant
@@ -81,7 +82,6 @@ private:
   ReadsManipulator *reads;
   SuffixArray *SA;    // store a pointer to SA for access
   double econt;          // the expected level of contamination
-
 
 
   std::set<unsigned int> CancerExtraction;
@@ -231,6 +231,9 @@ public:
   // This function performs pileup and returns the consensus sequence
   // for either the TUMOUR or HEALTHY sequence from the block indexed at 
   // block_id
+
+  void generateConsensusSequence(bool tissue, bp_block const& block, int &
+      cns_offset, int & pair_id, std::string & cns, std::string & qual);
 
   std::string addGaps(int ngaps);
   // Function returns a string of lenth ngaps, where gaps are '-'
