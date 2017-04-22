@@ -18,5 +18,23 @@ static const int MIN_SUFFIX = 30;
 
 int computeLCP(Suffix_t &isuf, Suffix_t &jsuf, ReadsManipulator &reads);
 // Returns the longest common prefix between isuf and jsuf suffixes
+struct mutation_classes{
+  std::vector<int> SNV_pos;
+};
+
+struct consensus_pair {
+  std::string mutated;
+  std::string non_mutated;
+  std::string mqual;
+  std::string nqual;
+  std::string read_freq_m;
+  std::string read_freq_nm;
+  unsigned int pair_id;
+  int mut_offset;
+  int nmut_offset;
+  int left_ohang;
+  int right_ohang;
+  mutation_classes mutations;
+};
 
 #endif

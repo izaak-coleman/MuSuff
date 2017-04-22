@@ -34,24 +34,7 @@ struct single_snv {
 class GenomeMapper {
 
 private:
-  struct mutation_classes{
-    std::vector<int> SNV_pos;
-  };
 
-  struct consensus_pair {
-    std::string mutated;
-    std::string non_mutated;
-    std::string mqual;
-    std::string nqual;
-    std::string read_freq_m;
-    std::string read_freq_nm;
-    unsigned int pair_id;
-    int mut_offset;
-    int nmut_offset;
-    int left_ohang;
-    int right_ohang;
-    mutation_classes mutations;
-  };
 
 
   BranchPointGroups *BPG; // access to breakpoint groups
@@ -76,6 +59,7 @@ private:
 
 
   std::string generateParseString(mutation_classes &m);
+
   // Function generates a string of the following string (mutation string)
   // [SNV:a;b;c][SSV:e;f;g][LSV:x;y;z]
   // this string is stored as the header for each

@@ -75,6 +75,78 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   cout << "Finished break point block construction" << endl;
 }
 
+void BranchPointGroups::buildConsensusPairs() {
+  vector <consensus_pair> cns_pairs;
+  for (bp_block &block : BreakPointBlocks) {
+    consensus_pair pair;
+    generateConsensusSequence(TUMOUR, block, pair.mut_offset, pair.id, pair.mutated, pair.mqual);
+  }
+}
+
+void BranchPointGroups::extractNonMutatedAlleles(bp_block &block, consensus_pair &pair) {
+  string query = pair.mutated.substr(pair.mut_offset, reads->minSuffixSize());
+  string rcquery = reverseComplementString(query);
+
+  long long int fwd_idx = binarySearch(query);
+  long long int rev_idx = binarySearch(rcquery);
+  if (fwd_idx != -1) {
+    extendBlock(fwd_idx, block.block, tag.orientation);
+  }
+  if (rev_idx != -1) {
+    extendBlock(rev_idx, block.block, !tag.orientation);
+  }
+
+  // if search failed, then re-search downstream and upstream 30bp
+  if (fwd_idx == -1 && rev_idx == -1) {
+    if (pair.mut_offset >= reads->minSuffixSize()) { // then enough dwnstr seq
+      int dwnstr = pair.mut_offset - reads->minSuffixSize();
+      query = pair.mutated.substr(dwnstr, reads->minSuffixSize());
+      rcquery = reverseComplementQuery(query);
+      fwd_idx = binarySearch(query);
+      rev_idx = binarySearch(rcquery);
+      vector<bp_block> fwd_result, rev_result;
+      if (fwd_idx != -1) {
+        extendBlock(fwd_idx, fwd_result, RIGHT);
+      }
+      if (rev_idx != -1) {
+        extendBlock(rev_idx, rev_result, LEFT);
+      }
+      for (read_tag & tag : fwd_result) {
+        tag.offset += reads->minSuffixSize();
+      }
+      for (read_tag & tag : rev_result) {
+        tag.offset -= reads->minSuffixSize();
+      }
+      block.insert(fwd_result.begin(), fwd_result.end());
+      block.insert(rev_result.begin(), rev_result.end());
+    }
+
+    if (pair.mutated.size() - (pair.offset + reads->minSuffixSize()) - 1 >=
+        reads->minSuffixSize()) { // then enough upstr seq
+      int upstr = pair.mut_offset + reads->minSuffixSize();
+      query = pair.mutated.substr(upstr, reads->minSuffixSize());
+      rcquery = reverseComplementQuery(query);
+      fwd_idx = binarySearch(query);
+      rev_idx = binarySearch(rcquery);
+      vector<bp_block> fwd_result, rev_result;
+      if (fwd_idx != -1) {
+        extendBlock(fwd_idx, fwd_result, RIGHT);
+      }
+      if (rev_idx != -1) {
+        extendBlock(rev_idx, rev_result, LEFT);
+      }
+      for (read_tag & tag : fwd_result) {
+        tag.offset += reads->minSuffixSize();
+      }
+      for (read_tag & tag : rev_result) {
+        tag.offset -= reads->minSuffixSize();
+      }
+      block.insert(fwd_result.begin(), fwd_result.end());
+      block.insert(rev_result.begin(), rev_result.end());
+    }
+  }
+}
+
 void BranchPointGroups::generateConsensusSequence(bool tissue,
     bp_block const& block, int & cns_offset, int & pair_id, string & cns,
     string & qual) {
@@ -82,6 +154,7 @@ void BranchPointGroups::generateConsensusSequence(bool tissue,
   std::vector<read_tag> subBlock;            // work with subset
   for (read_tag const& tag : block.block) {
     if (tissue == HEALTHY  && 
+
        (tag.tissue_type == HEALTHY || tag.tissue_type == SWITCHED)) {
       subBlock.push_back(tag);
     }
@@ -90,7 +163,6 @@ void BranchPointGroups::generateConsensusSequence(bool tissue,
     }
   }
 
-  cout << "seg fault after here" << endl;
   int max_offset = 0;
   int min_offset = std::numeric_limits<int>::max();
   for (read_tag &tag : subBlock) {
@@ -668,6 +740,7 @@ void BranchPointGroups::extractNonMutatedAlleles() {
 
 
 
+
 bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx, 
     int &cns_offset, bool tissue_type, unsigned int &pair_id, 
     string & cns, string & qual) {
@@ -901,7 +974,7 @@ string BranchPointGroups::buildQualityString(vector< vector<int> > const& freq_m
     //      bases / total bases = freq.
     // bases is equivalent to the number of reads with a base of type given
     // base. 
-    if (tissue == HEALTHY) {
+    if (tissue == HEALTHY) { // || TUMOUR testing
 
       double total_bases = 0;                     // get total_bases
       for (int base=0; base < 4; base++) {

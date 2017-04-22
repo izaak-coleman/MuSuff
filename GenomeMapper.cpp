@@ -45,7 +45,6 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
   buildConsensusPairs();
   cout << "Writing fastq" << endl;
   constructSNVFastqData();
-  cout << "Calling bwa" << endl;
   callBowtie2();
 
   vector<SamEntry> alignments;
