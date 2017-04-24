@@ -133,6 +133,9 @@ private:
   // looping through each block and searching for each 30bp substring
   // of each read
 
+  void extractNonMutatedAlleles(bp_block &block, consensus_pair &pair, bool
+      & fail);
+
   void extendBlock(int seed_index, std::set<read_tag, read_tag_compare> 
       &block, bool orientation);
   // Once a read covering a mutated allele
@@ -200,6 +203,8 @@ private:
 
   int convertOffset(read_tag const& tag);
   // converts offsets from LEFT and RIGHT orientation
+
+  void printAlignedBlock(bp_block block);
   
 
 public:
@@ -233,7 +238,7 @@ public:
   // block_id
 
   void generateConsensusSequence(bool tissue, bp_block const& block, int &
-      cns_offset, int & pair_id, std::string & cns, std::string & qual);
+      cns_offset, unsigned int & pair_id, std::string & cns, std::string & qual);
 
   std::string addGaps(int ngaps);
   // Function returns a string of lenth ngaps, where gaps are '-'
