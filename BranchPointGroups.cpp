@@ -28,7 +28,7 @@
 using namespace std;
 static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
-static const int COVERAGE_UPPER_THRESHOLD = 80;
+static const int COVERAGE_UPPER_THRESHOLD = 120;
 static const int READ_LENGTH = 100;
 static const int CTR_GSA1 = 1;
 static const int CTR_GSA2 = 4;
@@ -62,27 +62,129 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   //printAlignedBlocks();
   // buildCancerCNS()
   cout << "Number of break point blocks: " << BreakPointBlocks.size() << endl;
+  vector<consensus_pair> consensus_pairs;
   for (bp_block block : SeedBlocks) {
-    bool search_failed{false};
     consensus_pair pair;
     generateConsensusSequence(TUMOUR, block, pair.mut_offset, pair.pair_id, pair.mutated, pair.mqual);
-    extractNonMutatedAlleles(block, pair, search_failed);
+    extractNonMutatedAlleles(block, pair);
+    generateConsensusSequence(HEALTHY, block, pair.nmut_offset, pair.pair_id, pair.non_mutated, pair.nqual);
     if (block.block.size() > COVERAGE_UPPER_THRESHOLD) {
       continue;
     }
-    else {
-      BreakPointBlocks.push_back(block);  // finalize candidate block
+    trimHealthyConsensus(pair); // MUST trim healthy first
+    trimCancerConsensus(pair);
+    bool low_quality_block {false};
+    maskLowQualityPositions(pair, low_quality_block);
+    if (low_quality_block) {
+      continue;
     }
+    consensus_pairs.push_back(pair);
+    //else {
+    //  BreakPointBlocks.push_back(block);  // finalize candidate block
+    //  printAlignedBlock(block);
+    //  cout << "consensus pair: " << endl;
+    //  cout << "Pair id: " << pair.pair_id << endl;
+    //  cout << "Tumour: " << endl;
+    //  cout << pair.mutated << endl;
+    //  cout << pair.mqual << endl;
+    //  cout << "Block mutated offset: " << pair.mut_offset << endl;
+    //  cout << "Healthy: " << endl;
+    //  cout << pair.non_mutated << endl;
+    //  cout << pair.nqual << endl;
+    //  cout << "Block non_mut offset: " << pair.nmut_offset << endl;
 
-    printAlignedBlock(block);
-    cout << "Block relative offset: " << pair.mut_offset << endl;
-    cout << "Pair id: " << pair.pair_id << endl;
-        
+    //  trimHealthyConsensus(pair);   // testing trim
+    //  trimCancerConsensus(pair);
+    //  cout << "Tumour: " << endl;
+    //  cout << pair.mutated << endl;
+    //  cout << pair.mqual << endl;
+    //  cout << "Block mutated offset: " << pair.mut_offset << endl;
+    //  cout << "Healthy: " << endl;
+    //  cout << pair.non_mutated << endl;
+    //  cout << pair.nqual << endl;
+    //  cout << "Block non_mut offset: " << pair.nmut_offset << endl;
+
+    //  bool low_quality_block;
+    //  maskLowQualityPositions(pair, low_quality_block);
+    //  cout << "Tumour: " << endl;
+    //  cout << pair.mutated << endl;
+    //  cout << pair.mqual << endl;
+    //  cout << "Block mutated offset: " << pair.mut_offset << endl;
+    //  cout << "Healthy: " << endl;
+    //  cout << pair.non_mutated << endl;
+    //  cout << pair.nqual << endl;
+    //  cout << "Block non_mut offset: " << pair.nmut_offset << endl;
+    //}
   } 
+  cout << "DONE BUILDING PAIRS" << endl;
+  //for (consensus_pair const& p : consensus_pairs) {
+  //  cout << "consensus pair: " << endl;
+  //  cout << "Pair id: " << pair.pair_id << endl;
+  //  cout << "Tumour: " << endl;
+  //  cout << pair.mutated << endl;
+  //  cout << pair.mqual << endl;
+  //  cout << "Block mutated offset: " << pair.mut_offset << endl;
+  //  cout << "Healthy: " << endl;
+  //  cout << pair.non_mutated << endl;
+  //  cout << pair.nqual << endl;
+  //  cout << "Block non_mut offset: " << pair.nmut_offset << endl;
+
+  //}
   cout << "Adding non-mutated alleles to blocks." << endl;
   //extractNonMutatedAlleles();
   //outputFromBPB("/data/ic711/point5.txt");
   cout << "Finished break point block construction" << endl;
+}
+
+void BranchPointGroups::maskLowQualityPositions(consensus_pair & pair, bool &
+    low_quality) {
+  int low_quality_count{0};
+  for (int pos=0; pos < pair.mutated.size(); pos++) {
+    if (pair.mqual[pos] != '-' || pair.nqual[pos + pair.left_ohang] != '-') {
+      pair.mutated[pos] = pair.non_mutated[pos + pair.left_ohang];
+      low_quality_count++;
+    }
+  }
+  if (low_quality_count > 10) low_quality = true;
+}
+
+void BranchPointGroups::trimCancerConsensus(consensus_pair & pair) {
+  // Trim portions of the cancer consensus sequence that are
+  // longer than heathy. Leave healthy if longer.
+  // left cleave
+  if (pair.mut_offset > pair.nmut_offset) {
+    pair.mutated.erase(0, pair.mut_offset - pair.nmut_offset);
+    pair.mqual.erase(0, pair.mut_offset - pair.nmut_offset);
+  }
+  else if (pair.mut_offset < pair.nmut_offset) {
+    pair.left_ohang = pair.nmut_offset - pair.mut_offset;
+  }
+
+  // right cleave
+  if (pair.mutated.size() > (pair.non_mutated.size() - pair.left_ohang)) {
+    int dist = pair.mutated.size() - (pair.non_mutated.size() - pair.left_ohang);
+    pair.mutated.erase(pair.mutated.size() - dist, dist);
+    pair.mqual.erase(pair.mqual.size() - dist, dist);
+  }
+  else if (pair.mutated.size() < (pair.non_mutated.size() - pair.left_ohang)) {
+    pair.right_ohang = (pair.non_mutated.size() - pair.left_ohang) - pair.mutated.size();
+  }
+  // else, equal length. Do nothing
+}
+
+void BranchPointGroups::trimHealthyConsensus(consensus_pair & pair) {
+  // Trims the distal ends of the healthy consensus read, such that
+  // the number of reads contributing to each consensus character is
+  // >= TRIM_VALUE
+  int left_arrow = 0, right_arrow= pair.nqual.size() - 1;
+  for(; right_arrow > 0 && pair.nqual[right_arrow] == 'T'; right_arrow--);
+  right_arrow++;
+  for(; left_arrow < pair.nqual.size() && pair.nqual[left_arrow] == 'T'; left_arrow++);
+  pair.nqual.erase(right_arrow);         // DO NOT SWITCH ORDER
+  pair.non_mutated.erase(right_arrow);
+  pair.nqual.erase(0, left_arrow);
+  pair.non_mutated.erase(0, left_arrow);
+  pair.nmut_offset -= left_arrow;
 }
 
 //void BranchPointGroups::buildConsensusPairs() {
@@ -94,7 +196,7 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
 //}
 
 void BranchPointGroups::extractNonMutatedAlleles(bp_block &block, consensus_pair
-    &pair, bool & fail) {
+    &pair) {
 
   bool LEFT{false}, RIGHT{true};
   // For each consensus sequence, where cns length permits, search three 30bp windows
@@ -294,7 +396,12 @@ void BranchPointGroups::generateConsensusSequence(bool tissue,
       nreads += cnsCount[base][pos];
     }
     if (nreads < TRIM_VALUE) {
-      qual[pos] = 'L';
+      if (tissue == TUMOUR) {
+        qual[pos] = 'L';
+      }
+      else { // tissue == SWITCHED || tissue == HEALTHY
+        qual[pos] = 'T';
+      }
     }
   }
   //////// DEBUG
@@ -641,7 +748,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
     // Load group into break point blocks
     block.id = block_id;
     //BlockSeeds.push_back(block);     // for loss of sensitivity by way of 2
-    BreakPointBlocks.push_back(block);
+    SeedBlocks.push_back(block);
     block_id++;
     seed_index = extension++;
   }
@@ -651,7 +758,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
     block.block.insert(gsa[seed_index]);
     block.id = block_id;
     //BlockSeeds.push_back(block);      // for loss of sensitivity by way of 2
-    BreakPointBlocks.push_back(block);
+    SeedBlocks.push_back(block);
   }
 }
 
@@ -1097,11 +1204,11 @@ void BranchPointGroups::extendBlock(int seed_index,
   }
 
 
-  if (left_of_seed >= 30 && seed_index != 0){
+  if (left_of_seed >= 30 && seed_index > 0){
     getSuffixesFromLeft(seed_index, block, orientation);
   }
   
-  if (right_of_seed >= 30 && seed_index != (SA->getSize() -1)) {
+  if (right_of_seed >= 30 && seed_index < (SA->getSize() - 1)) {
     getSuffixesFromRight(seed_index, block, orientation);
   }
 }
@@ -1115,7 +1222,7 @@ void BranchPointGroups::getSuffixesFromLeft(int seed_index,
   // so add them
 
   while( // lcps are same AND not out of bounds AND not already in group...
-      left_arrow > 0           
+      left_arrow >= 0           
       && ::computeLCP(SA->getElem(left_arrow),
                                     SA->getElem(seed_index), *reads) >= 30) {
 
@@ -1136,7 +1243,7 @@ void BranchPointGroups::getSuffixesFromLeft(int seed_index,
     }
 
     // insert tag into block
-    pair<std::set<read_tag, read_tag_compare>::iterator, bool> correct_ins = block.insert(next_read);
+    block.insert(next_read);
     left_arrow--;
   }
 }
@@ -1150,7 +1257,7 @@ void BranchPointGroups::getSuffixesFromRight(int seed_index,
   // so add them
 
   while ( // lcps are the same AND not out of bounds AND not already in group...
-      right_arrow < (SA->getSize()-1)         // max LCP size is one less than SA
+      right_arrow < SA->getSize()         // max LCP size is one less than SA
       && ::computeLCP(SA->getElem(right_arrow), 
                                     SA->getElem(seed_index), *reads) >= 30 ) {
 
@@ -1461,6 +1568,7 @@ void BranchPointGroups::printAlignedBlock(bp_block block) {
     }
 
     cout << addGaps(max - offset) << read << " - " 
+         << tag.read_id << " - " 
          << tag.offset << " - " 
          << ((tag.orientation) ? "R" : "L") << " - "
          << ((tag.tissue_type == HEALTHY) ? "H" : ((tag.tissue_type == SWITCHED) ? "S" : "T")) << endl;
@@ -1481,6 +1589,7 @@ void BranchPointGroups::printAlignedBlock(bp_block block) {
     }
 
     cout << addGaps(max - offset) << read << " - " 
+         << tag.read_id << " - " 
          << tag.offset << " - " 
          << ((tag.orientation) ? "R" : "L") << " - "
          << ((tag.tissue_type == HEALTHY) ? "H" : ((tag.tissue_type == SWITCHED) ? "S" : "T")) << endl;

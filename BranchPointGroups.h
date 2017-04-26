@@ -1,4 +1,5 @@
 #ifndef BRANCHPOINTGROUPS_H
+
 #define BRANCHPOINTGROUPS_H
 
 #include <vector>
@@ -93,7 +94,7 @@ private:
   // in the same orientation. This is done by unifyComplementaryGroups()
   // The unified groups are then stored in ComplementaryUnified
 
-  std::vector<bp_block> BlockSeeds;
+  std::vector<bp_block> SeedBlocks;  // only contain tumour read subblock
   std::vector<bp_block> BreakPointBlocks;
   
 
@@ -133,8 +134,7 @@ private:
   // looping through each block and searching for each 30bp substring
   // of each read
 
-  void extractNonMutatedAlleles(bp_block &block, consensus_pair &pair, bool
-      & fail);
+  void extractNonMutatedAlleles(bp_block &block, consensus_pair &pair);
 
   void extendBlock(int seed_index, std::set<read_tag, read_tag_compare> 
       &block, bool orientation);
@@ -205,8 +205,12 @@ private:
   // converts offsets from LEFT and RIGHT orientation
 
   void printAlignedBlock(bp_block block);
-  
 
+  void trimHealthyConsensus(consensus_pair & pair);
+  void trimCancerConsensus(consensus_pair & pair);
+  void maskLowQualityPositions(consensus_pair & pair, bool & low_quality);
+
+  
 public:
 
 
