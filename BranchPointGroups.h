@@ -110,14 +110,14 @@ private:
 
 
 
-  void getSuffixesFromLeft(int seed_index, 
+  bool getSuffixesFromLeft(int seed_index, 
                            std::set<read_tag, read_tag_compare> &block,
                            bool orientation, int calibration);
   // Function gathers suffixes from left (towards 0) in the array
   // that share an lcp of >= 30 with the suffix at SA[seed_index]
   
   
-  void getSuffixesFromRight(int seed_index, 
+  bool getSuffixesFromRight(int seed_index, 
                            std::set<read_tag, read_tag_compare> &block, 
                            bool orientation, int calibration);
   // Function gathers suffixes from right (towards end) in the array
@@ -136,7 +136,7 @@ private:
 
   void extractNonMutatedAlleles(bp_block &block, consensus_pair &pair);
 
-  void extendBlock(int seed_index, std::set<read_tag, read_tag_compare> 
+  bool extendBlock(int seed_index, std::set<read_tag, read_tag_compare> 
       &block, bool orientation, int calibration);
   // Once a read covering a mutated allele
   // has been found, extract reads with >= 30bp lcp in common with seed_index

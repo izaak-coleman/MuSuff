@@ -13,6 +13,7 @@
 #include "util_funcs.h"
 #include "string.h"
 #include "SamEntry.h"
+#include "benchmark.h"
 
 using namespace std;
 
@@ -42,7 +43,11 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
 
 
   cout << "Building consensus pairs" << endl;
+  START(buildcns);
   buildConsensusPairs();
+  END(buildcns);
+  TIME(buildcns);
+  PRINT(buildcns);
   cout << "Writing fastq" << endl;
   constructSNVFastqData();
   callBowtie2();

@@ -28,10 +28,11 @@
 using namespace std;
 static const int N_THREADS = 64;
 static const int TRIM_VALUE = 4;
-static const int COVERAGE_UPPER_THRESHOLD = 120;
-static const int READ_LENGTH = 100;
+static const int COVERAGE_UPPER_THRESHOLD = 80;
+static const int READ_LENGTH = 80;
 static const int CTR_GSA1 = 1;
 static const int CTR_GSA2 = 4;
+static const int EXPECTED_RATIO = 1;
 
 
 BranchPointGroups::BranchPointGroups(SuffixArray &_SA, 
@@ -63,6 +64,7 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
   // buildCancerCNS()
   cout << "Number of seed blocks: " << SeedBlocks.size() << endl;
   vector<consensus_pair> consensus_pairs;
+  int skipped = 0;
   START(cnsBuild);
   for (bp_block &block : SeedBlocks) {
     consensus_pair pair;
@@ -79,11 +81,6 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
     TIME(extractNMA);
     PRINT(extractNMA);
 
-    START(generateCNSH);
-    generateConsensusSequence(HEALTHY, block, pair.nmut_offset, pair.pair_id, pair.non_mutated, pair.nqual);
-    END(generateCNSH);
-    TIME(generateCNSH);
-    PRINT(generateCNSH);
     if (block.block.size() > COVERAGE_UPPER_THRESHOLD) {
       START(clearAT);
       block.block.clear();
@@ -92,6 +89,13 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
       PRINT(clearAT);
       continue;
     }
+
+    START(generateCNSH);
+    generateConsensusSequence(HEALTHY, block, pair.nmut_offset, pair.pair_id, pair.non_mutated, pair.nqual);
+    END(generateCNSH);
+    TIME(generateCNSH);
+    PRINT(generateCNSH);
+
     START(clearBT);
     block.clear();
     END(clearBT);
@@ -111,22 +115,26 @@ BranchPointGroups::BranchPointGroups(SuffixArray &_SA,
     PRINT(trimAndMask);
 
     consensus_pairs.push_back(pair);
-//    cout << "Pair id: " << pair.pair_id << endl;
-//    cout << "Tumour: " << endl;
-//    cout << pair.mutated << endl;
-//    cout << pair.mqual << endl;
-//    cout << "Block mutated offset: " << pair.mut_offset << endl;
-//    cout << "Healthy: " << endl;
-//    cout << pair.non_mutated << endl;
-//    cout << pair.nqual << endl;
-//    cout << "Block non_mut offset: " << pair.nmut_offset << endl;
+    if (pair.mutated.empty()) {
+      skipped++;
+    }
+    //cout << "Pair id: " << pair.pair_id << endl;
+    //cout << "Tumour: " << endl;
+    //cout << pair.mutated << endl;
+    //cout << pair.mqual << endl;
+    //cout << "Block mutated offset: " << pair.mut_offset << endl;
+    //cout << "Healthy: " << endl;
+    //cout << pair.non_mutated << endl;
+    //cout << pair.nqual << endl;
+    //cout << "Block non_mut offset: " << pair.nmut_offset << endl;
   } 
   END(cnsBuild);
   TIME(cnsBuild);
   PRINT(cnsBuild);
+  cout << "n skipped: " << skipped << endl;
   cout << "DONE BUILDING PAIRS" << endl;
   cout << "Adding non-mutated alleles to blocks." << endl;
-  //extractNonMutatedAlleles();
+  extractNonMutatedAlleles();
   //outputFromBPB("/data/ic711/point5.txt");
   cout << "Finished break point block construction" << endl;
 }
@@ -182,119 +190,156 @@ void BranchPointGroups::trimHealthyConsensus(consensus_pair & pair) {
   pair.nmut_offset -= left_arrow;
 }
 
-
-void BranchPointGroups::extractNonMutatedAlleles(bp_block &block, consensus_pair
-    &pair) {
-
+void BranchPointGroups::extractNonMutatedAlleles(bp_block &block,
+    consensus_pair &pair) {
   bool LEFT{false}, RIGHT{true};
-  // For each consensus sequence, where cns length permits, search three 30bp windows
-  // from indexes offset-30, offset, offset+30, assuming minimum suffix size
-  // is 30.
-  for (int i = pair.mut_offset - reads->getMinSuffixSize();
-       i <= pair.mut_offset + reads->getMinSuffixSize();
-       i += reads->getMinSuffixSize()) {
-    // substring in cns bounds
-    if (i < 0 || i > pair.mutated.size() - reads->getMinSuffixSize()) {
-      continue;
-    }
+  string query = pair.mutated.substr(pair.mut_offset, 30);
+  string rcquery = reverseComplementString(query);
+  long long int fwd_idx = binarySearch(query);
+  long long int rev_idx = binarySearch(rcquery);
 
-    START(queryBuild);
-    string query = pair.mutated.substr(i, reads->getMinSuffixSize());
-    string rcquery = reverseComplementString(query);
-    END(queryBuild);
-    TIME(queryBuild);
-    PRINT(queryBuild);
-
-    START(binSearch);
-    long long int fwd_idx = binarySearch(query);
-    long long int rev_idx = binarySearch(rcquery);
-    END(binSearch);
-    TIME(binSearch);
-    PRINT(binSearch);
-
-    START(extendBlock);
-    if (fwd_idx != -1) {
-      extendBlock(fwd_idx, block.block, RIGHT, pair.mut_offset - i);
-      //for (read_tag const& tag : fwd_result) {
-      //  tag.offset += pair.mut_offset - i; // + (+30), + 0, + (-30)
-      //}
-    }
-    if (rev_idx != -1) {
-      extendBlock(rev_idx, block.block, LEFT, pair.mut_offset - i);
-      //for (read_tag const& tag : rev_result) {
-      //  tag.offset -= pair.mut_offset - i; // - (+30), - 0, - (-30)
-      //}
-    }
-    END(extendBlock);
-    TIME(extendBlock);
-    PRINT(extendBlock);
+  bool success_left{false}, success_right{false};
+  if (fwd_idx != -1) {
+    success_right = extendBlock(fwd_idx, block.block, RIGHT, 0);
   }
-//  long long int fwd_idx = binarySearch(query);
-//  long long int rev_idx = binarySearch(rcquery);
-//  if (fwd_idx != -1) {
-//    extendBlock(fwd_idx, block.block, RIGHT);
-//  }
-//  else {
-//    cout << "forward search failed" << endl;
-//  }
-//  if (rev_idx != -1) {
-//    extendBlock(rev_idx, block.block, LEFT);
-//  }
-//  else {
-//    cout << "reverse search failed" << endl;
-//  }
-//
-//  // if search failed, then re-search downstream and upstream 30bp
-//  if (fwd_idx == -1 && rev_idx == -1) {
-//    fail = true;
-//    if (pair.mut_offset >= reads->getMinSuffixSize()) { // then enough dwnstr seq
-//      int dwnstr = pair.mut_offset - reads->getMinSuffixSize();
-//      query = pair.mutated.substr(dwnstr, reads->getMinSuffixSize());
-//      rcquery = reverseComplementString(query);
-//      fwd_idx = binarySearch(query);
-//      rev_idx = binarySearch(rcquery);
-//      set<read_tag, read_tag_compare> fwd_result, rev_result;
-//      if (fwd_idx != -1) {
-//        extendBlock(fwd_idx, fwd_result, RIGHT);
-//      }
-//      if (rev_idx != -1) {
-//        extendBlock(rev_idx, rev_result, LEFT);
-//      }
-//      for (read_tag const& tag : fwd_result) {
-//        tag.offset += reads->getMinSuffixSize();
-//      }
-//      for (read_tag const& tag : rev_result) {
-//        tag.offset -= reads->getMinSuffixSize();
-//      }
-//      block.block.insert(fwd_result.begin(), fwd_result.end());
-//      block.block.insert(rev_result.begin(), rev_result.end());
-//    }
-//
-//    if (pair.mutated.size() - (pair.mut_offset + reads->getMinSuffixSize()) - 1 >=
-//        reads->getMinSuffixSize()) { // then enough upstr seq
-//      int upstr = pair.mut_offset + reads->getMinSuffixSize();
-//      query = pair.mutated.substr(upstr, reads->getMinSuffixSize());
-//      rcquery = reverseComplementString(query);
-//      fwd_idx = binarySearch(query);
-//      rev_idx = binarySearch(rcquery);
-//      set<read_tag, read_tag_compare> fwd_result, rev_result;
-//      if (fwd_idx != -1) {
-//        extendBlock(fwd_idx, fwd_result, RIGHT);
-//      }
-//      if (rev_idx != -1) {
-//        extendBlock(rev_idx, rev_result, LEFT);
-//      }
-//      for (read_tag const& tag : fwd_result) {
-//        tag.offset -= reads->getMinSuffixSize();
-//      }
-//      for (read_tag const& tag : rev_result) {
-//        tag.offset += reads->getMinSuffixSize();
-//      }
-//      block.block.insert(fwd_result.begin(), fwd_result.end());
-//      block.block.insert(rev_result.begin(), rev_result.end());
-//    }
-//  }
+  if (rev_idx != -1) {
+    success_left = extendBlock(rev_idx, block.block, LEFT, 0);
+  }
+  if (!(success_left || success_right)) {
+    cout << "Running search fail" << endl;
+    // then perform flanking search
+    for (int i = pair.mut_offset - reads->getMinSuffixSize();
+        i <= pair.mut_offset + reads->getMinSuffixSize();
+        i += reads->getMinSuffixSize() * 2) { // * 2 skips center search
+      if (i < 0 || i > pair.mutated.size() - reads->getMinSuffixSize()) {
+        continue;
+      }
+      query = pair.mutated.substr(i, reads->getMinSuffixSize());
+      rcquery = reverseComplementString(query);
+      fwd_idx = binarySearch(query);
+      rev_idx = binarySearch(rcquery);
+      if (fwd_idx != -1) {
+        extendBlock(fwd_idx, block.block, RIGHT, pair.mut_offset - i);
+      }
+      if (rev_idx != -1) {
+        extendBlock(rev_idx, block.block, LEFT, pair.mut_offset - i);
+      }
+    }
+  }
 }
+
+//void BranchPointGroups::extractNonMutatedAlleles(bp_block &block, consensus_pair
+//    &pair) {
+//
+//  bool LEFT{false}, RIGHT{true};
+//  // For each consensus sequence, where cns length permits, search three 30bp windows
+//  // from indexes offset-30, offset, offset+30, assuming minimum suffix size
+//  // is 30.
+//  for (int i = pair.mut_offset - reads->getMinSuffixSize();
+//       i <= pair.mut_offset + reads->getMinSuffixSize();
+//       i += reads->getMinSuffixSize()) {
+//    // substring in cns bounds
+//    if (i < 0 || i > pair.mutated.size() - reads->getMinSuffixSize()) {
+//      continue;
+//    }
+//
+//    START(queryBuild);
+//    string query = pair.mutated.substr(i, reads->getMinSuffixSize());
+//    string rcquery = reverseComplementString(query);
+//    END(queryBuild);
+//    TIME(queryBuild);
+//    PRINT(queryBuild);
+//
+//    START(binSearch);
+//    long long int fwd_idx = binarySearch(query);
+//    long long int rev_idx = binarySearch(rcquery);
+//    END(binSearch);
+//    TIME(binSearch);
+//    PRINT(binSearch);
+//
+//    START(extendBlock);
+//    if (fwd_idx != -1) {
+//      extendBlock(fwd_idx, block.block, RIGHT, pair.mut_offset - i);
+//      //for (read_tag const& tag : fwd_result) {
+//      //  tag.offset += pair.mut_offset - i; // + (+30), + 0, + (-30)
+//      //}
+//    }
+//    if (rev_idx != -1) {
+//      extendBlock(rev_idx, block.block, LEFT, pair.mut_offset - i);
+//      //for (read_tag const& tag : rev_result) {
+//      //  tag.offset -= pair.mut_offset - i; // - (+30), - 0, - (-30)
+//      //}
+//    }
+//    END(extendBlock);
+//    TIME(extendBlock);
+//    PRINT(extendBlock);
+//  }
+////  long long int fwd_idx = binarySearch(query);
+////  long long int rev_idx = binarySearch(rcquery);
+////  if (fwd_idx != -1) {
+////    extendBlock(fwd_idx, block.block, RIGHT);
+////  }
+////  else {
+////    cout << "forward search failed" << endl;
+////  }
+////  if (rev_idx != -1) {
+////    extendBlock(rev_idx, block.block, LEFT);
+////  }
+////  else {
+////    cout << "reverse search failed" << endl;
+////  }
+////
+////  // if search failed, then re-search downstream and upstream 30bp
+////  if (fwd_idx == -1 && rev_idx == -1) {
+////    fail = true;
+////    if (pair.mut_offset >= reads->getMinSuffixSize()) { // then enough dwnstr seq
+////      int dwnstr = pair.mut_offset - reads->getMinSuffixSize();
+////      query = pair.mutated.substr(dwnstr, reads->getMinSuffixSize());
+////      rcquery = reverseComplementString(query);
+////      fwd_idx = binarySearch(query);
+////      rev_idx = binarySearch(rcquery);
+////      set<read_tag, read_tag_compare> fwd_result, rev_result;
+////      if (fwd_idx != -1) {
+////        extendBlock(fwd_idx, fwd_result, RIGHT);
+////      }
+////      if (rev_idx != -1) {
+////        extendBlock(rev_idx, rev_result, LEFT);
+////      }
+////      for (read_tag const& tag : fwd_result) {
+////        tag.offset += reads->getMinSuffixSize();
+////      }
+////      for (read_tag const& tag : rev_result) {
+////        tag.offset -= reads->getMinSuffixSize();
+////      }
+////      block.block.insert(fwd_result.begin(), fwd_result.end());
+////      block.block.insert(rev_result.begin(), rev_result.end());
+////    }
+////
+////    if (pair.mutated.size() - (pair.mut_offset + reads->getMinSuffixSize()) - 1 >=
+////        reads->getMinSuffixSize()) { // then enough upstr seq
+////      int upstr = pair.mut_offset + reads->getMinSuffixSize();
+////      query = pair.mutated.substr(upstr, reads->getMinSuffixSize());
+////      rcquery = reverseComplementString(query);
+////      fwd_idx = binarySearch(query);
+////      rev_idx = binarySearch(rcquery);
+////      set<read_tag, read_tag_compare> fwd_result, rev_result;
+////      if (fwd_idx != -1) {
+////        extendBlock(fwd_idx, fwd_result, RIGHT);
+////      }
+////      if (rev_idx != -1) {
+////        extendBlock(rev_idx, rev_result, LEFT);
+////      }
+////      for (read_tag const& tag : fwd_result) {
+////        tag.offset -= reads->getMinSuffixSize();
+////      }
+////      for (read_tag const& tag : rev_result) {
+////        tag.offset += reads->getMinSuffixSize();
+////      }
+////      block.block.insert(fwd_result.begin(), fwd_result.end());
+////      block.block.insert(rev_result.begin(), rev_result.end());
+////    }
+////  }
+//}
 
 void BranchPointGroups::generateConsensusSequence(bool tissue,
     bp_block const& block, int & cns_offset, unsigned int & pair_id, string & cns,
@@ -1171,11 +1216,12 @@ void BranchPointGroups::invalidatePosition(vector< vector<int> > &alignment_coun
 }
 
 
-void BranchPointGroups::extendBlock(int seed_index, 
+bool BranchPointGroups::extendBlock(int seed_index, 
     set<read_tag, read_tag_compare> &block, bool orientation, int calibration) {
 
   // seed_index is the index of the unique suffix_t this function
   // was called with. 
+  bool success_left{false}, success_right{false};
 
   int left_of_seed = 0, right_of_seed = 0;
 
@@ -1191,17 +1237,19 @@ void BranchPointGroups::extendBlock(int seed_index,
 
 
   if (left_of_seed >= 30 && seed_index > 0){
-    getSuffixesFromLeft(seed_index, block, orientation, calibration);
+    success_left = getSuffixesFromLeft(seed_index, block, orientation, calibration);
   }
   
   if (right_of_seed >= 30 && seed_index < (SA->getSize() - 1)) {
-    getSuffixesFromRight(seed_index, block, orientation, calibration);
+    success_right = getSuffixesFromRight(seed_index, block, orientation, calibration);
   }
+  return success_left || success_right;
 }
 
-void BranchPointGroups::getSuffixesFromLeft(int seed_index,
+bool BranchPointGroups::getSuffixesFromLeft(int seed_index,
   set<read_tag, read_tag_compare> &block, bool orientation, int calibration) {
 
+  bool success = false;
   int left_arrow = seed_index-1;
   // While lexicographally adjacent suffixes share the same lcp value
   // they have the same branchpoint, thus they are in the same group,
@@ -1233,14 +1281,18 @@ void BranchPointGroups::getSuffixesFromLeft(int seed_index,
     }
 
     // insert tag into block
-    block.insert(next_read);
+    std::pair<set<read_tag, read_tag_compare>::iterator, bool> 
+      insertion = block.insert(next_read);
+    if (insertion.second == true) success = true;
     left_arrow--;
   }
+  return success;
 }
 
-void BranchPointGroups::getSuffixesFromRight(int seed_index,
+bool BranchPointGroups::getSuffixesFromRight(int seed_index,
     set<read_tag, read_tag_compare> &block, bool orientation, int calibration) {
 
+  bool success = false;
   int right_arrow = seed_index+1;
   // While lexicographically adjacent suffixes share the same lcp val
   // they have the same branchpoint, thus they are in the same group
@@ -1270,9 +1322,12 @@ void BranchPointGroups::getSuffixesFromRight(int seed_index,
       next_read.tissue_type = SWITCHED;
     }
 
-    block.insert(next_read);
+    std::pair<set<read_tag, read_tag_compare>::iterator, bool> 
+      insertion = block.insert(next_read);
+    if (insertion.second == true) success = true;
     right_arrow++;
   }
+  return success;
 }
 
 
