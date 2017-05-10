@@ -32,6 +32,8 @@ private:
   std::string ofile;
   std::vector<std::string> HealthyReads;  // Container for healthy dataset
   std::vector<std::string> TumourReads;   // Container for cancer dataset 
+  std::vector<std::string> HealthyPhred;  // Read and phred containers correspond by index
+  std::vector<std::string> TumourPhred;
   std::mutex quality_processing_lock;  // lock for thread copy to H/T.Reads
 
 

@@ -29,7 +29,7 @@ static const int OFILE_IDX = 3;
 static const int TERM_CHAR_CORRECTION = 1;
 static const int N_THREADS = 1;
 static const int MIN_SUFFIX_SIZE = 30;  // remove user definable variable
-static const int DISTAL_TRIM = 25;
+static const int DISTAL_TRIM = 0;
 
 static const double QUALITY_THRESH = 0.1; // 10% 
 static const char PHRED_20 = '5';   // lowest high quality phred score
@@ -443,6 +443,15 @@ string & ReadsManipulator::getReadByIndex(int index, int tissue) {
       exit(1);
     }
     return TumourReads[index];
+  }
+}
+
+char ReadsManipulator::baseQuality(int index, int tissue, int pos) {
+  if (tissue == HEALTHY) {
+    return HealthyPhred[index][pos];
+  }
+  else { // tissue == TUMOUR || tissue == SWITCHED
+    return HealthyPhred[index][pos];
   }
 }
 

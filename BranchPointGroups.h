@@ -96,6 +96,7 @@ private:
 
   std::vector<bp_block> SeedBlocks;  // only contain tumour read subblock
   std::vector<bp_block> BreakPointBlocks;
+  std::vector<consensus_pair> consensus_pairs;
   
 
   void makeBreakPointBlocks();
@@ -253,6 +254,9 @@ public:
 
   void outputFromBPB(std::string const& filename);
   std::string readTagToString(read_tag const& tag);
+
+  consensus_pair & getPair(int i);
+  int cnsPairSize();
 };
 
 

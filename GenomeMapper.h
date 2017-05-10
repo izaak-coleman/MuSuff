@@ -39,7 +39,6 @@ private:
 
   BranchPointGroups *BPG; // access to breakpoint groups
   ReadsManipulator *reads;
-  std::vector<consensus_pair> consensus_pairs;
 
 
   void buildConsensusPairs();
@@ -113,6 +112,7 @@ public:
     GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
         std::string outfile);
 
+    std::vector<consensus_pair> consensus_pairs;
     void printConsensusPairs();
     // print out each mutated and non mutated string
     void printMutation(char healthy, char cancer, std::ofstream &mut_file);

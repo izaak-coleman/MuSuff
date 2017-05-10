@@ -44,7 +44,7 @@ GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
 
   cout << "Building consensus pairs" << endl;
   START(buildcns);
-  buildConsensusPairs();
+//  buildConsensusPairs();
   END(buildcns);
   TIME(buildcns);
   PRINT(buildcns);
@@ -354,7 +354,11 @@ void GenomeMapper::constructSNVFastqData() {
   ofstream snv_fq;
   snv_fq.open("/data/ic711/result/cns_pairs.fastq");
 
-  for (consensus_pair &cns_pair : consensus_pairs) {
+  for (int i = 0; i < BPG->cnsPairSize(); i++) {
+    consensus_pair &cns_pair = BPG->getPair(i);
+    if (cns_pair.mutated.empty() || cns_pair.non_mutated.empty()) {
+      continue;
+    }
 //    if(cns_pair.mutations.SNV_pos.size() == 0) {    // REMOVE IF on 14/11/16
 //      continue;
 //    }
@@ -389,6 +393,9 @@ void GenomeMapper::parseSamFile(vector<SamEntry> &alignments, string filename) {
    
     SamEntry entry(line);     // parse the entry into a SamEntry
     if (entry.get<string>(SamEntry::RNAME) != "22") {
+      continue;
+    }
+    if(entry.get<int>(SamEntry::MAPQ) < 42) {
       continue;
     }
     alignments.push_back(entry);
