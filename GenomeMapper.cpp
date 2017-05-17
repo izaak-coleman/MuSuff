@@ -28,47 +28,55 @@ static const int SSV = 2;
 static const int LSV = 3;
 static const int MUT_CNS = 1;
 
-static const int MAX_LOW_CONF_POSITIONS = 10;
 
 
 static const int REVERSE_FLAG = 16;
 static const int FORWARD_FLAG = 0;
 
 
-GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
-    string outfile){
+GenomeMapper::GenomeMapper(BranchPointGroups &bpgroups, 
+                           ReadsManipulator &reads,
+                           string outpath,
+                           string const& basename,
+                           string const& chr,
+                           string const& bwt_idx,
+                           int min_mapq):
+                           MIN_MAPQ(min_mapq),
+                           CHR(chr) {
 
   this->reads = &reads;
   this->BPG = &bpgroups;
+  if (outpath[outpath.size()-1] != '/') outpath += "/";
+  string fastqName(outpath + basename + ".fastq"),
+         samName(outpath + basename + ".sam"),
+         outName(outpath + basename + ".SNV_results");
 
-
-  cout << "Building consensus pairs" << endl;
-  START(buildcns);
 //  buildConsensusPairs();
-  END(buildcns);
-  TIME(buildcns);
-  PRINT(buildcns);
   cout << "Writing fastq" << endl;
-  constructSNVFastqData();
-  callBowtie2();
+  constructSNVFastqData(fastqName);
+  cout << "Aligning consensus pairs with Bowtie2" << endl;
+
+  // Call Bowtie2
+  string command_aln("./bowtie2-2.3.1/bowtie2 -x " + bwt_idx + " -U " +
+                     fastqName + " -S " + samName);
+  system(command_aln.c_str());
 
   vector<SamEntry> alignments;
   cout << "Parsing sam" << endl;
-  parseSamFile(alignments, "/data/ic711/result/cns_pairs.sam");
+  parseSamFile(alignments, samName);
   cout << "Identifying SNV" << endl;
   identifySNVs(alignments);
 
 //  printAlignmentStructs(alignments);
-
-  outputSNVToUser(alignments, outfile);
+  outputSNVToUser(alignments, outName);
 }
 
-void GenomeMapper::callBowtie2() {
-  cout << "Calling Bowtie2" << endl;
-  string command_aln = 
-    "./bowtie2-2.3.1/bowtie2 -x /data/ic711/insilico_data/bowtie_index/hg19 -U /data/ic711/result/cns_pairs.fastq -S /data/ic711/result/cns_pairs.sam";
-  system(command_aln.c_str());
-}
+//void GenomeMapper::callBowtie2() {
+//  cout << "Calling Bowtie2" << endl;
+//  string command_aln = 
+//    "./bowtie2-2.3.1/bowtie2 -x " + bwt_idx + " -U " + fastqName + " -S " samName;
+//  system(command_aln.c_str());
+//}
 
 void GenomeMapper::callBWA() {
   cout << "Calling bwa..." << endl;
@@ -135,7 +143,7 @@ void GenomeMapper::maskLowQualityPositions(consensus_pair & pair, bool &low_qual
     }
   }
 
-  if (num_low_quality_positions > MAX_LOW_CONF_POSITIONS) low_quality = true;
+  //if (num_low_quality_positions > MAX_LOW_CONF_POSITIONS) low_quality = true;
 }
 
 //void GenomeMapper::buildConsensusPairs() {
@@ -350,9 +358,9 @@ void GenomeMapper::printConsensusPairs() {
 }
 
 
-void GenomeMapper::constructSNVFastqData() {
+void GenomeMapper::constructSNVFastqData(string const& fastqName) {
   ofstream snv_fq;
-  snv_fq.open("/data/ic711/result/cns_pairs.fastq");
+  snv_fq.open(fastqName.c_str());
 
   for (int i = 0; i < BPG->cnsPairSize(); i++) {
     consensus_pair &cns_pair = BPG->getPair(i);
@@ -392,10 +400,10 @@ void GenomeMapper::parseSamFile(vector<SamEntry> &alignments, string filename) {
     }
    
     SamEntry entry(line);     // parse the entry into a SamEntry
-    if (entry.get<string>(SamEntry::RNAME) != "22") {
+    if (entry.get<string>(SamEntry::RNAME) != CHR) {
       continue;
     }
-    if(entry.get<int>(SamEntry::MAPQ) < 42) {
+    if(entry.get<int>(SamEntry::MAPQ) < MIN_MAPQ) {
       continue;
     }
     alignments.push_back(entry);
@@ -500,6 +508,7 @@ void GenomeMapper::countSNVs(SamEntry &alignment, int ohang) {
     }
   }
 
+
   // SNV at start
   if (mutated[0] != non_mutated[0 + ohang] &&
       mutated[1] == non_mutated[1 + ohang]) {
@@ -535,7 +544,7 @@ bool GenomeMapper::compareSNVLocations(const single_snv &a, const single_snv &b)
 }
 
 
-void GenomeMapper::outputSNVToUser(vector<SamEntry> &alignments, string report_filename) {
+void GenomeMapper::outputSNVToUser(vector<SamEntry> &alignments, string outName) {
 
 
   // load each snv into a separate struct, so each can be easily sorted
@@ -566,7 +575,7 @@ void GenomeMapper::outputSNVToUser(vector<SamEntry> &alignments, string report_f
   // sort the snvs 
   std::sort(separate_snvs.begin(), separate_snvs.end(), compareSNVLocations);
   
-  ofstream report(report_filename);
+  ofstream report(outName);
   report << "Mut_ID\tType\tChr\tPos\tNormal_NT\tTumor_NT" << endl;
 
   unsigned int i=0;

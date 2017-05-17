@@ -35,15 +35,17 @@ static const int READ_LENGTH = 80;
 //static const char MIN_PHRED_QUAL = '7';
 //static const double ALLELIC_FREQ_OF_ERROR = 0.1;
 
+
 BranchPointGroups::BranchPointGroups(SuffixArray &_SA, 
                                      ReadsManipulator &_reads,
-                                     char m, int g1, int g2, int c,
-                                     int t, double e, double a):
-                                     MIN_PHRED_QUAL(m), 
+                                     char mpq, int g1, int g2, int cut,
+                                     int t, int mlcp, double e, double a):
+                                     MIN_PHRED_QUAL(mpq), 
                                      GSA1_MCT(g1), 
                                      GSA2_MCT(g2), 
-                                     COVERAGE_UPPER_THRESHOLD(c),
+                                     COVERAGE_UPPER_THRESHOLD(cut),
                                      N_THREADS(t),
+                                     MAX_LOW_CONFIDENCE_POS(mlcp),
                                      ECONT(e), 
                                      ALLELIC_FREQ_OF_ERROR(a) {
 
@@ -132,7 +134,7 @@ void BranchPointGroups::maskLowQualityPositions(consensus_pair & pair, bool &
       low_quality_count++;
     }
   }
-  if (low_quality_count > 10) low_quality = true;
+  if (low_quality_count > MAX_LOW_CONFIDENCE_POS) low_quality = true;
 }
 
 void BranchPointGroups::trimCancerConsensus(consensus_pair & pair) {

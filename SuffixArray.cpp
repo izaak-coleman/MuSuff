@@ -26,7 +26,7 @@
 
 using namespace std;
 
-static const int N_THREADS = 64;
+// debug ints for printing GSA
 static const int READ_ID_IDX = 0;
 static const int OFFSET_IDX  = 1;
 static const int TYPE_IDX = 2;
@@ -36,8 +36,11 @@ static const int NUM_FIELDS = 3;
 static const string EXT = ".gsa";
 
 
-SuffixArray::SuffixArray(ReadsManipulator &reads, uint8_t min_suffix) {
-  cout << "MIN SUFFIX" << (int) min_suffix << endl;
+SuffixArray::SuffixArray(ReadsManipulator &reads, int min_suffix, 
+                         int n_threads):
+N_THREADS(n_threads),
+MIN_SUFFIX(min_suffix) {
+  cout << "MIN SUFFIX " << (int) min_suffix << endl;
   this->reads = &reads;      // store reads location
   cout << "Starting parallelGenRadixSA:" << endl;
 
@@ -64,7 +67,7 @@ void SuffixArray::printReadsInGSA(std::string const& filename) {
 // PARALLELRADIXSACONSTRUCTION FUNCS
 
 
-void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
+void SuffixArray::parallelGenRadixSA(int min_suffix) {
 
   vector<thread> BSA_and_SA;
 
@@ -128,6 +131,7 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
     thread.join();
   }
 
+  delete radixSA;  // done with suffix array
   // Finally, load blocks into final SA in order
   for(int i=0; i < array_blocks.size(); i++) {
     for(int j=0; j < array_blocks[i].size(); j++) {
@@ -135,7 +139,6 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
     }
   }
 
-  delete radixSA;  // done with suffix array
   SA.shrink_to_fit();
 }
 
@@ -143,7 +146,7 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
     vector<pair<unsigned int, unsigned int> > *healthyBSA,
     vector<pair<unsigned int, unsigned int> > *tumourBSA,
     unsigned long long *radixSA, unsigned int from, 
-    unsigned int to, unsigned int startOfTumour, uint8_t min_suf) {
+    unsigned int to, unsigned int startOfTumour, int min_suf) {
 
   for(unsigned int i=from; i < to; i++) {
     // extract mapping, determining which read the suffix belongs to

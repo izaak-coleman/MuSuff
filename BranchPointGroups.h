@@ -82,6 +82,7 @@ private:
   int GSA2_MCT;
   const int COVERAGE_UPPER_THRESHOLD;
   const int N_THREADS;
+  const int MAX_LOW_CONFIDENCE_POS;
   const double ECONT;
   const double ALLELIC_FREQ_OF_ERROR;
 
@@ -226,8 +227,8 @@ public:
                     ReadsManipulator &reads, 
                     char min_phred, int gsa1_mct, int gsa2_mct,
                     int coverage_upper_threshold,
-                    int n_threads, double econt,
-                    double allelic_freq_of_error);
+                    int n_threads, int max_low_confidence_pos,
+                    double econt, double allelic_freq_of_error);
   // Construtor: Uses SA to load data. Constructor called 
   // generateReadGroups, and so, the object is functional after this call
 

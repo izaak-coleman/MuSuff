@@ -12,9 +12,11 @@
 
 class SuffixArray {
 private:
-
+  const int N_THREADS;
+  const int MIN_SUFFIX;
   ReadsManipulator *reads;
   std::vector<Suffix_t> SA;      // pointer to suffix array
+
 
   void buildGSAFile(std::vector<Suffix_t> &GSA, std::string filename);
   // Writes csv equivalent of GSA, for persistent use into a .gsa file
@@ -52,14 +54,14 @@ private:
 
   // PARA RADIX FUNCTIONS
 
-  void parallelGenRadixSA(uint8_t min_suffix);
+  void parallelGenRadixSA(int min_suffix);
 
 
   void transformSuffixArrayBlock(std::vector<Suffix_t> *block, 
       std::vector<std::pair<unsigned int, unsigned int> > *healthyBSA,
       std::vector<std::pair<unsigned int, unsigned int> > *tumourBSA,
       unsigned long long *radixSA, unsigned int from, 
-      unsigned int to, unsigned int startOfTumour, uint8_t min_suf);
+      unsigned int to, unsigned int startOfTumour, int min_suf);
 
   void buildBinarySearchArrays(
       std::vector<std::pair<unsigned int, unsigned int> >
@@ -100,7 +102,7 @@ private:
   
 
 public:
-  SuffixArray(ReadsManipulator &reads, uint8_t min_suffix);
+  SuffixArray(ReadsManipulator &reads, int min_suffix, int n_threads);
   // SA constructor builds SA: Loads unsorted suffixes, then sorts.
 
   ~SuffixArray();
@@ -116,6 +118,7 @@ public:
   // in the suffix array
 
   Suffix_t & getElem(int index);
+
   // Function returns SA[index] by ref
 
   unsigned int getSize();

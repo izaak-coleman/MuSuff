@@ -13,7 +13,6 @@
 #include <zlib.h>   // gunzip parser
 #include "kseq.h"   // fastq parser
 
-
 #include "util_funcs.h"
 #include "string.h" // split_string()
 #include "Reads.h"
@@ -22,35 +21,33 @@ KSEQ_INIT(gzFile, gzread);    // initialize .gz parser
 
 
 using namespace std;
-static const int NUM_ARGS = 4;
 static const int HEADER_FILE_IDX = 1;
 static const int ECONT_IDX = 2;
 static const int OFILE_IDX = 3;
 static const int TERM_CHAR_CORRECTION = 1;
-static const int N_THREADS = 1;
-static const int MIN_SUFFIX_SIZE = 30;  // remove user definable variable
+static const int MIN_SUFFIX_SIZE = 30;
 static const int DISTAL_TRIM = 0;
 
 static const double QUALITY_THRESH = 0.1; // 10% 
 static const char PHRED_20 = '5';   // lowest high quality phred score
-
 static const string REMOVED_TOKENS = "N"; // remove N from fastq
 static const string TERM_CHAR = "$";      // suffix termination character
 
 
 
-ReadsManipulator::ReadsManipulator(int argc, char **argv) {
+ReadsManipulator::ReadsManipulator(int n_threads, string const& inputFile):
+N_THREADS(1){
+  minimum_suffix_size = MIN_SUFFIX_SIZE;
+  distal_trim_len = DISTAL_TRIM;
 
   vector<file_and_type> datafiles;
-  parseCommandLine(argc, argv, datafiles);
-  ofile = argv[OFILE_IDX];
+  parseInputFile(inputFile, datafiles);
   cout << "DISTAL_TRIM: " << DISTAL_TRIM << endl;
 
-  // start reading files
-  cout << "Extracting fastq data from " << datafiles.size() << " files..." << endl;
+  cout << "Loaded " << datafiles.size() << " data files." << endl;
 
   for(int i=0; i < datafiles.size(); i++) {
-    cout << "Loading data from " << datafiles[i].first << "..." << endl;
+    cout << "Extracting data from " << datafiles[i].first << "..." << endl;
     if (datafiles[i].second) { // == HEALTHY
       loadFastqRawDataFromFile(datafiles[i].first, HealthyReads, HealthyPhreds);
     }
@@ -89,70 +86,33 @@ void ReadsManipulator::printAllReads() {
   osock.close();
 }
 
-void ReadsManipulator::parseCommandLine(int argc, char** argv,
-    vector<file_and_type> &datafiles) {
-
-  // Only NUM_ARGS input. If fail count, explain to user options and
-  // file format
-  if (argc != NUM_ARGS) {
-    cout << "Usage: <exec> <header_file>"
-         << " <contamination_ratio> <outfile_name>" << endl;
-
-    cout << endl << endl;
-    cout << "Please note the the format of headerfile.txt:"
-         << endl 
-         << "<file1>\t<H/T> <1/2>" << endl
-         << "<file2>\t<H/T> <1/2>" << endl
-         << "..." << endl;
-    exit(1);
-  }
-
-  // save params
-  minimum_suffix_size = MIN_SUFFIX_SIZE;
-  econt = std::stod(argv[ECONT_IDX]);
-  distal_trim_len = DISTAL_TRIM;
-
-  // store data file names
-  ifstream headerfile;
-  headerfile.open(argv[HEADER_FILE_IDX]);
-  cout << "Parsing inputs..." << endl;
-  cout << "Reading filenames from " << argv[HEADER_FILE_IDX] << " ... " << endl;
-
+void ReadsManipulator::parseInputFile(string const& inputFile, 
+                                        vector<file_and_type> &datafiles) {
+  ifstream sock;
+  sock.open(inputFile.c_str());
+  cout << "Gathering datafiles from " << inputFile << "." << endl;
   string file_string;
-  file_and_type file_info;
+  while (getline(sock, file_string)) {
+    file_and_type file_info;
+    vector<string> fields;
+    split_string(file_string, ",\t ", fields);
 
-  while (getline(headerfile, file_string)) {
-
-    // momentarily work with c strings, to make use of the glorious strtok()...
-
-    // load the filename into file_and_type...
-    char * c_file = const_cast<char*>(file_string.c_str()); 
-    file_info.first = strtok(c_file, ",\t ");
-
-    // load the type bool into file_and_type...
-    char * c_datatype = strtok(NULL, ",\t ");      // get next feild
-    string datatype = c_datatype;                    // convert to string
-
-    if (datatype == "H") {              // then bool
-      file_info.second = HEALTHY;
-    }
-    else if (datatype == "T") {
-      file_info.second = TUMOUR;
-    }
+    // load data
+    file_info.first = fields[0];
+    if (fields[1] == "H") file_info.second = HEALTHY;
+    else if (fields[1] == "T") file_info.second = TUMOUR;
     else {
-      cout << datatype << " is not a valid datatype, either H or T. " << endl
-           << "Program terminating..." << endl;
+      cout << fields[1] 
+           << " is not a valid datatype, either H or T." 
+           << endl << "Program terminating." << endl;
       exit(1);
     }
-
-
-    cout << "Storing " << file_info.first << " as "
+    cout << "Input " << file_info.first << " as "
          << ((file_info.second) ? "healthy" : "tumour") << " data "
          << endl;
-
-    datafiles.push_back(file_info);      // store in params
+    datafiles.push_back(file_info);
   }
-
+  sock.close();
 }
 
 string ReadsManipulator::performDistalTrim(string & s) {
@@ -505,13 +465,7 @@ char ReadsManipulator::baseQuality(int index, int tissue, int pos) {
 int ReadsManipulator::getMinSuffixSize() {
   return minimum_suffix_size;
 }
-double ReadsManipulator::getEcont() {
-  return econt;
-}
 
-string ReadsManipulator::outFile() {
-  return ofile;
-}
 
 void ReadsManipulator::printRemainingReads(std::string const& filename) {
   ofstream fileHandle(filename.c_str());

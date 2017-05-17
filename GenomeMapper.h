@@ -34,7 +34,8 @@ class GenomeMapper {
 
 private:
 
-
+  const int MIN_MAPQ;
+  const std::string CHR;
 
   BranchPointGroups *BPG; // access to breakpoint groups
   ReadsManipulator *reads;
@@ -64,7 +65,7 @@ private:
   // aligned healthy read. This allows identification
   // of the mutation indexes directly from the SAM file
 
-  void constructSNVFastqData();
+  void constructSNVFastqData(std::string const& samName);
   // generates the fastq file of non_mutated reads to align
   // to the refrence genome. 
   // a fastq element has format 
@@ -109,7 +110,9 @@ private:
 
 public:
     GenomeMapper(BranchPointGroups &bpgroups, ReadsManipulator &reads,
-        std::string outfile);
+                 std::string outpath, std::string const& basename,
+                 std::string const& chr, std::string const& bwt_idx,
+                 int min_mapq);
 
     std::vector<consensus_pair> consensus_pairs;
     void printConsensusPairs();

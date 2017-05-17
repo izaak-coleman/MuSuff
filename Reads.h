@@ -25,11 +25,9 @@ class ReadsManipulator{
   // Functions are allowed direct access to reads. 
 
 private:
-
+  const int N_THREADS;
   int minimum_suffix_size;
-  double econt;
   int distal_trim_len;
-  std::string ofile;
   std::vector<std::string> HealthyReads;  // Container for healthy dataset
   std::vector<std::string> TumourReads;   // Container for cancer dataset 
   std::vector<std::string> HealthyPhreds;  // Read and phred containers correspond by index
@@ -37,10 +35,8 @@ private:
   std::mutex quality_processing_lock;  // lock for thread copy to H/T.Reads
 
 
-  void parseCommandLine(int argc, char **argv, 
-       std::vector<file_and_type> &datafiles);
-  // extracts data file information from header file
-  // extracts econt and minimum suffix length
+  void parseInputFile(std::string const& inputFile, std::vector<file_and_type> &datafiles);
+  // Parses inputFile, extraction data file path and tissue subset
 
   void loadFastqRawDataFromFile(std::string filename, 
                               std::vector<std::string> & processed_reads,
@@ -68,7 +64,7 @@ public:
  // where their values express whether the read at the same index in 
  // the Healthy/TumourReads arrays if of LEFT or RIGHT type
 
- ReadsManipulator(int argc, char **argv);
+ ReadsManipulator(int n_threads, std::string const& inputFile);
  // Constructor for loading and processing reads
 
  char baseQuality(int index, int tissue, int pos);
@@ -110,11 +106,6 @@ public:
  // returns the min suffix size of suffixes in the suffix array
  // as specified by the user
 
- double getEcont();
- // returns the econt value as specified by the user at cmd-line
-
- std::string outFile();
- // returns the name of the final output file
 
  void printRemainingReads(std::string const& filename);
  // prints the tuples of the read once loaded from files

@@ -37,6 +37,7 @@ static const int    GSA2_MCT               = 4;
 static const int    MAX_LOW_CONFIDENCE_POS = 10;
 static const int    ECONT                  = 0;
 static const int    MIN_PHRED_QUAL         = 22; 
+static const int    MIN_MAPQ               = 42;
 static const double ALLELE_FREQ_OF_ERR     = 0.1; 
 static const string OUTPUT_PATH            = "./"; 
 
@@ -49,16 +50,23 @@ int main(int argc, char** argv)
     desc.add_options() 
       ("help", "Print options description.\n") 
       ("gsa1_mct,1",  po::value<int>()->default_value(GSA1_MCT), 
-       "Minimum group size extracted from the first GSA.\n")
+       "Minimum group size extracted from the first GSA. Integer.\n")
 
       ("gsa2_mct,2",  po::value<int>()->default_value(GSA2_MCT), 
-       "Minimum group size extracted from the second GSA.\n")
+       "Minimum group size extracted from the second GSA. Integer.\n")
 
       ("min_phred,h", po::value<int>()->default_value(MIN_PHRED_QUAL),
        "Minimum allowed phred score of any character that contributes to a consensus sequence. Base-33 phred score. Integer ranged [0-42]\n")
 
       ("max_allele_freq_of_error,f", po::value<double>()->default_value(ALLELE_FREQ_OF_ERR), 
        "Maximum allelic frequency of a base within an aligned block that is considered an error frequency. Real number ranged [0-1].\n")
+      
+      ("max_low_confidence_positions,l",
+       po::value<int>()->default_value(MAX_LOW_CONFIDENCE_POS),
+       "Maximum number of low confidence positions allowed per block before the block is discarded. Integer.\n")
+
+      ("min_mapq,q", po::value<int>()->default_value(MIN_MAPQ),
+       "Defines the minimum Bowtie2 MAPQ score of the aligned healthy consensus sequence of a consensus pair that permits the consensus pair to undergo further analysis. Integer ranged [0-42].\n")
 
       ("expected_contamination,e", po::value<double>()->default_value(ECONT),
        "Proportion of cancer data set expected to contain healthy derived reads. Real number ranged [0-1].\n")
@@ -164,6 +172,23 @@ int main(int argc, char** argv)
                   << "Program terminating." << std::endl;
         return ERROR_IN_COMMAND_LINE;
       }
+      if (vm["max_low_confidence_positions"].as<int>() < 0) {
+        std::cerr << "ERROR: " 
+                  << "--max_low_confidence_positions must be at least 0."
+                  << std::endl << std::endl
+                  << "Refer to --help for input desciption." << std::endl
+                  << "Program terminating." << std::endl;
+        return ERROR_IN_COMMAND_LINE;
+      }
+      if (vm["min_mapq"].as<int>() < PHRED_LBOUND || 
+          vm["min_mapq"].as<int>() > PHRED_UBOUND) {
+        std::cerr << "ERROR: " 
+                  << "--min_mapq must be an integer value in range [0-42]."
+                  << std::endl << std::endl
+                  << "Refer to --help for input desciption." << std::endl
+                  << "Program terminating." << std::endl;
+        return ERROR_IN_COMMAND_LINE;
+      }
 
       struct stat info_p, info_i;
       if (stat(vm["output_path"].as<string>().c_str(), &info_p) != 0) {
@@ -209,8 +234,10 @@ int main(int argc, char** argv)
       return ERROR_IN_COMMAND_LINE; 
     } 
     // Run GeDi
-    ReadsManipulator reads(argc, argv);
-    SuffixArray SA(reads, reads.getMinSuffixSize());
+    ReadsManipulator reads(vm["n_threads"].as<int>(),
+                           vm["input_files"].as<string>());
+
+    SuffixArray SA(reads, reads.getMinSuffixSize(), vm["n_threads"].as<int>());
 
     BranchPointGroups BG(SA, reads, 
                          vm["min_phred"].as<int>()+BASE33_CONVERSION,
@@ -218,10 +245,16 @@ int main(int argc, char** argv)
                          vm["gsa2_mct"].as<int>(),
                          vm["expected_coverage"].as<int>()*CALIB,
                          vm["n_threads"].as<int>(),
-                         vm["econt"].as<double>(),
+                         vm["max_low_confidence_positions"].as<int>(),
+                         vm["expected_contamination"].as<double>(),
                          vm["max_allele_freq_of_error"].as<double>());
 
-    GenomeMapper mapper(BG, reads, reads.outFile());
+    GenomeMapper mapper(BG, reads,
+                        vm["output_path"].as<string>(),
+                        vm["output_basename"].as<string>(),
+                        vm["chromosome"].as<string>(),
+                        vm["bt2-idx"].as<string>(),
+                        vm["min_mapq"].as<int>());
     return SUCCESS;
   } 
   catch(std::exception& e) 
