@@ -77,13 +77,19 @@ struct bp_block {
 
 class BranchPointGroups {
 private:
+  const char MIN_PHRED_QUAL;
+  const int GSA1_MCT;
+  int GSA2_MCT;
+  const int COVERAGE_UPPER_THRESHOLD;
+  const int N_THREADS;
+  const double ECONT;
+  const double ALLELIC_FREQ_OF_ERROR;
+
   std::mutex cancer_extraction_lock;
   std::mutex cout_lock;
 
   ReadsManipulator *reads;
   SuffixArray *SA;    // store a pointer to SA for access
-  double econt;          // the expected level of contamination
-
 
   std::set<unsigned int> CancerExtraction;
   // CancerExtraction contains sets of ints, where each set
@@ -100,6 +106,7 @@ private:
   
 
   void makeBreakPointBlocks();
+  unsigned int backUpSearchStart(unsigned int seed_index);
   
 
   void extractCancerSpecificReads();
@@ -215,7 +222,12 @@ private:
 public:
 
 
-  BranchPointGroups(SuffixArray &SA, ReadsManipulator &reads, double econt);
+  BranchPointGroups(SuffixArray &SA, 
+                    ReadsManipulator &reads, 
+                    char min_phred, int gsa1_mct, int gsa2_mct,
+                    int coverage_upper_threshold,
+                    int n_threads, double econt,
+                    double allelic_freq_of_error);
   // Construtor: Uses SA to load data. Constructor called 
   // generateReadGroups, and so, the object is functional after this call
 

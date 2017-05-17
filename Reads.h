@@ -32,8 +32,8 @@ private:
   std::string ofile;
   std::vector<std::string> HealthyReads;  // Container for healthy dataset
   std::vector<std::string> TumourReads;   // Container for cancer dataset 
-  std::vector<std::string> HealthyPhred;  // Read and phred containers correspond by index
-  std::vector<std::string> TumourPhred;
+  std::vector<std::string> HealthyPhreds;  // Read and phred containers correspond by index
+  std::vector<std::string> TumourPhreds;
   std::mutex quality_processing_lock;  // lock for thread copy to H/T.Reads
 
 
@@ -43,12 +43,14 @@ private:
   // extracts econt and minimum suffix length
 
   void loadFastqRawDataFromFile(std::string filename, 
-                              std::vector<std::string> &p_data);
+                              std::vector<std::string> & processed_reads,
+                              std::vector<std::string> &processed_phreds);
   // Function loads DNA reads from filename.fasta.gz
   // either HealthyReads/TumourReads dep. on passes pointer
 
   void qualityProcessRawData(std::vector<fastq_t> *r_data, 
-                            std::vector<std::string> *p_data,
+                            std::vector<std::string> *processed_reads,
+                            std::vector<std::string> *processed_phreds,
                             int from, int to, int tid);
   // Function deployed on threads. Function acts to:
   // 1) Discard reads where number positions in a read with a value
@@ -69,9 +71,14 @@ public:
  ReadsManipulator(int argc, char **argv);
  // Constructor for loading and processing reads
 
+ char baseQuality(int index, int tissue, int pos);
+ std::string & getPhredString(int index, int tissue);
+
  void printAllReads();
  // prints all reads to file reads_after_icsmufin.txt
 
+  void writeContainer(std::vector<std::string> const& c, std::string const&
+      fname);
 
  ~ReadsManipulator();
  // Deletes the reads

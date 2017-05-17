@@ -8,7 +8,6 @@
 #include "BranchPointGroups.h"
 #include "Reads.h"
 #include "SamEntry.h"
-static const double ALLELIC_FREQ_OF_ERROR = 0.1;
 
 struct snv_aln_info {
  std::vector<int> SNV_pos;

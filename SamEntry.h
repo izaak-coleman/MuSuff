@@ -96,6 +96,9 @@ public:
   void snv_push_back(int v);
   // wrapper for SNVLocations.push_back(v)
 
+  bool containsIndel(); 
+  // True if CIGAR contains insertion 'I' or deletion 'D' in string
+
 
 private:
   // Fields

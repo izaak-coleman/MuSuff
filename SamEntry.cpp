@@ -119,4 +119,11 @@ void SamEntry::snv_push_back(int v) {
 int SamEntry::snvLocSize() { return SNVLocations.size();}
 int SamEntry::snvLocation(int idx) {return SNVLocations[idx];}
 void SamEntry::setSNVLocation(int idx, int val) {SNVLocations[idx] = val;}
+bool SamEntry::containsIndel() {
+  string cigar = get<string>(SamEntry::CIGAR);
+  if (cigar.find('I') || cigar.find('D')) {
+    return true;
+  }
+  return false;
+}
 

@@ -373,7 +373,7 @@ void GenomeMapper::constructSNVFastqData() {
 
     snv_fq << cns_pair.non_mutated << endl;
     snv_fq << "+" << endl;
-    string qual(cns_pair.non_mutated.size(), '!'); // set quality to highest, as dummy
+    string qual(cns_pair.non_mutated.size(), '!'); 
     snv_fq << qual << endl;
   }
 }

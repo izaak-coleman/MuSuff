@@ -86,38 +86,33 @@ void SuffixArray::parallelGenRadixSA(uint8_t min_suffix) {
         &startOfTumour, &radixSASize)
       );
 
-  for(auto &thread : BSA_and_SA) { thread.join();}
+  for(auto &thread : BSA_and_SA) { 
+    thread.join();
+  }
 
 
 
 
   // begin parallel suffix array construction
+  cout << "radix sa size " << radixSASize << endl;
   vector<thread> workers;
   vector<vector<Suffix_t>> array_blocks;
-  cout << "radix sa size " << radixSASize << endl;
-
   unsigned int elements_per_thread = (radixSASize/N_THREADS);
-
 
   // initialze blocks
   for(int i=0; i < N_THREADS; i++) {
-
     vector<Suffix_t> init;
     init.reserve(elements_per_thread);      // make room
     array_blocks.push_back(init);
   }
   
-
-
   unsigned int from=0, to = elements_per_thread;
   for(unsigned int i=0; i < N_THREADS; i++) {
-
     // run worker thread
     workers.push_back(
     std::thread(&SuffixArray::transformSuffixArrayBlock, this, &array_blocks[i], 
         &healthyBSA, &tumourBSA, radixSA, from, to, startOfTumour, min_suffix)
     );
-
     // set up next worker thread
     from = to;
     if(i == N_THREADS - 2) {  // set up end chunk for final thread
@@ -151,14 +146,10 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
     unsigned int to, unsigned int startOfTumour, uint8_t min_suf) {
 
   for(unsigned int i=from; i < to; i++) {
-
     // extract mapping, determining which read the suffix belongs to
-
     if(radixSA[i] < startOfTumour) { // HEALTHY
-
       pair<unsigned int, unsigned int > read_concat_tup = 
         binarySearch(*healthyBSA, radixSA[i]);
-
       Suffix_t s;
       s.offset = radixSA[i] - read_concat_tup.second;
       if (reads->getReadByIndex(read_concat_tup.first, HEALTHY).size() - s.offset
@@ -182,7 +173,6 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
 //      else { // suffix was less than 30pb long so we dont want it  
 //        continue;
 //      }
-
     }
 
     else {                      // TUMOUR Can logic be simplified??
@@ -200,7 +190,6 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
         s.type = TUMOUR;
         block->push_back(s);
       }
-
     //  if(((radixSA[i] - startOfTumour) - read_concat_tup.second) <=
     //      (reads->getReadByIndex(read_concat_tup.first, TUMOUR).size() - min_suf)) {
     //    Suffix_t s;
@@ -213,7 +202,6 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
     //  else { // suffix was less than 30pb long so we dont want it  
     //    continue;
     //  }
-
     }
   }
 }
@@ -221,7 +209,6 @@ void SuffixArray::transformSuffixArrayBlock(vector<Suffix_t> *block,
 void SuffixArray::buildBinarySearchArrays(
     vector<pair<unsigned int, unsigned int> > *healthyBSA, 
     vector<pair<unsigned int, unsigned int> > *tumourBSA) {
-
   generateBSA(*healthyBSA, HEALTHY);
   generateBSA(*tumourBSA, TUMOUR);
 
@@ -230,17 +217,13 @@ void SuffixArray::buildBinarySearchArrays(
 void SuffixArray::generateParallelRadix(unsigned long long **radixSA, 
                                         unsigned int *startOfTumour,
                                         unsigned int *sizeOfRadixSA) {
-
   // concatenate all reads
   string concat = concatenateReads(HEALTHY);
   *startOfTumour = concat.size();            // mark the end of healthy seqs 
   concat += concatenateReads(TUMOUR);
   *sizeOfRadixSA = concat.size();
-
-
   // Build SA
   *radixSA = Radix<unsigned long long>((uchar*) concat.c_str(), concat.size()).build();
-
 }
 
 

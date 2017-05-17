@@ -52,16 +52,28 @@ ReadsManipulator::ReadsManipulator(int argc, char **argv) {
   for(int i=0; i < datafiles.size(); i++) {
     cout << "Loading data from " << datafiles[i].first << "..." << endl;
     if (datafiles[i].second) { // == HEALTHY
-      loadFastqRawDataFromFile(datafiles[i].first, HealthyReads);
+      loadFastqRawDataFromFile(datafiles[i].first, HealthyReads, HealthyPhreds);
     }
     else{ // filetype == TUMOUR
-      loadFastqRawDataFromFile(datafiles[i].first, TumourReads);
+      loadFastqRawDataFromFile(datafiles[i].first, TumourReads, TumourPhreds);
     }
   }
 
 //  printRemainingReads("/data/ic711/point1.txt");
 //  printAllReads();
   cout << "End of ReadsManipulator constructor " << endl;
+//  writeContainer(HealthyReads, "/data/ic711/HealthyReads.txt");
+//  writeContainer(TumourReads, "/data/ic711/TumourReads.txt");
+//  writeContainer(HealthyPhreds, "/data/ic711/HealthyPhreds.txt");
+//  writeContainer(TumourPhreds, "/data/ic711/TumourPhreds.txt");
+}
+
+void ReadsManipulator::writeContainer(vector<string> const& c, string const& fname) {
+  ofstream of(fname.c_str());
+  for (string const& s : c) {
+    of << s << endl;
+  }
+  of.close();
 }
 
 void ReadsManipulator::printAllReads() {
@@ -150,7 +162,8 @@ string ReadsManipulator::performDistalTrim(string & s) {
 }
 
 void ReadsManipulator::loadFastqRawDataFromFile(string filename, 
-                              vector<string> &p_data) {
+                              vector<string> &processed_reads, 
+                              vector<string> & processed_phreds) {
 
   gzFile data_file;
   data_file = gzopen(filename.c_str(), "r");    // open stream to next fastq.gz 
@@ -190,18 +203,16 @@ void ReadsManipulator::loadFastqRawDataFromFile(string filename,
   int from = 0, to = elements_per_thread;
 
   // run threads...
-
   for(int i=0; i < N_THREADS; ++i) {
     // run thread, processing a chunk of the raw data
     thread_group.push_back(
          std::thread(&ReadsManipulator::qualityProcessRawData, this, 
-                     fastq_elements_p, &p_data, from, to, i));
+                     fastq_elements_p, &processed_reads, &processed_phreds, from, to, i));
 
 
     // set up next chunk
     from = to;
     if (i == N_THREADS-1) {// last thread
-      cout << "All reads input" << endl;
       to = fastq_elements.size();
     }
     else {
@@ -217,13 +228,16 @@ void ReadsManipulator::loadFastqRawDataFromFile(string filename,
 }
 
 void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data, 
-                           vector<string> *p_data,
+                           vector<string> *processed_reads,
+                           vector<string> *processed_phreds,
                            int from,
                            int to, int tid){
 
   // from, to define the range this thread will process
-  vector<string> localThreadsStore;
-  localThreadsStore.reserve(to - from);
+  vector<string> readThreadStore;
+  vector<string> phredThreadStore;
+  readThreadStore.reserve(to - from);
+  phredThreadStore.reserve(to - from);
 
   cout << "Thread " << tid << " processing section: " << from  
        << " - " << to << endl;
@@ -260,20 +274,37 @@ void ReadsManipulator::qualityProcessRawData(vector<fastq_t> *r_data,
     // else, deemed high quality
 
 
-    vector<string> tokenless_set;
-    split_string((*r_data)[i].seq, REMOVED_TOKENS, tokenless_set); // remove tok
-    for (int i=0; i < tokenless_set.size(); i++) {
-      if(tokenless_set[i].length() >= MIN_SUFFIX_SIZE - TERM_CHAR_CORRECTION) {
-        localThreadsStore.push_back(performDistalTrim(tokenless_set[i]) + TERM_CHAR);
+// REMEMBER TO REMOVE PERFORM DISTAL TRIM FOR PRODUCTION
+    vector<string> read_substrs;  // remove N chars
+    vector<string> phred_substrs;
+    int left_arrow{0}, right_arrow{0};
+    while((right_arrow = (*r_data)[i].seq.find(REMOVED_TOKENS, left_arrow)) != string::npos) {
+      if (left_arrow == right_arrow) {
+        left_arrow++;
+        continue;
+      }
+      read_substrs.push_back((*r_data)[i].seq.substr(left_arrow, right_arrow - left_arrow));
+      phred_substrs.push_back((*r_data)[i].qual.substr(left_arrow, right_arrow - left_arrow));
+      left_arrow = right_arrow + 1;
+    }
+    read_substrs.push_back((*r_data)[i].seq.substr(left_arrow));
+    phred_substrs.push_back((*r_data)[i].qual.substr(left_arrow));
+
+    for (int i=0; i < read_substrs.size(); i++) {
+      if(read_substrs[i].length() >= MIN_SUFFIX_SIZE /*- TERM_CHAR_CORRECTION */) {
+        readThreadStore.push_back(performDistalTrim(read_substrs[i]) + TERM_CHAR);
+        phredThreadStore.push_back(performDistalTrim(phred_substrs[i]));
       }
     }
   }
 
   std::lock_guard<std::mutex> lock(quality_processing_lock); // coordinate threads
-  for (string accepted_read : localThreadsStore) {
-    p_data->push_back(accepted_read); // load trimmed read
+  for (string accepted_read : readThreadStore) {
+    processed_reads->push_back(accepted_read); // load trimmed read
   }
-
+  for (string phred : phredThreadStore) {
+    processed_phreds->push_back(phred);
+  }
     // Link iterators to string
     //string::iterator left = (*r_data)[i].seq.begin();
     //string::iterator right = (*r_data)[i].seq.begin();
@@ -445,13 +476,29 @@ string & ReadsManipulator::getReadByIndex(int index, int tissue) {
     return TumourReads[index];
   }
 }
+string & ReadsManipulator::getPhredString(int index, int tissue) {
+  if(tissue == HEALTHY) {
+    if (index >= HealthyPhreds.size() || index < 0) {
+      cout << "getReadByIndex() out of bounds" << endl;
+      exit(1);
+    }
+    return HealthyPhreds[index];
+  }
+  else {  // tissue == TUMOUR || tissue == SWITCHED
+    if (index >= TumourPhreds.size() || index < 0) {
+      cout << "getReadsByIndex() out of bounds" << endl;
+      exit(1);
+    }
+    return TumourPhreds[index];
+  }
+}
 
 char ReadsManipulator::baseQuality(int index, int tissue, int pos) {
   if (tissue == HEALTHY) {
-    return HealthyPhred[index][pos];
+    return HealthyPhreds[index][pos];
   }
   else { // tissue == TUMOUR || tissue == SWITCHED
-    return HealthyPhred[index][pos];
+    return HealthyPhreds[index][pos];
   }
 }
 

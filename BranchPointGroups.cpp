@@ -26,24 +26,35 @@
 
 
 using namespace std;
-static const int N_THREADS = 64;
-static const int TRIM_VALUE = 4;
-static const int COVERAGE_UPPER_THRESHOLD = 2000;
-static const int READ_LENGTH = 100;
-static const int CTR_GSA1 = 1;
-static const int CTR_GSA2 = 4;
-
+//static const int N_THREADS = 64;
+//static const int GSA2_MCT = 4;
+//static const int COVERAGE_UPPER_THRESHOLD = 150;
+static const int READ_LENGTH = 80;
+//static const int GSA1_MCT  = 1;
+//static const int GSA2_MCT = 4;
+//static const char MIN_PHRED_QUAL = '7';
+//static const double ALLELIC_FREQ_OF_ERROR = 0.1;
 
 BranchPointGroups::BranchPointGroups(SuffixArray &_SA, 
                                      ReadsManipulator &_reads,
-                                     double _econt) {
-  econt = _econt;
+                                     char m, int g1, int g2, int c,
+                                     int t, double e, double a):
+                                     MIN_PHRED_QUAL(m), 
+                                     GSA1_MCT(g1), 
+                                     GSA2_MCT(g2), 
+                                     COVERAGE_UPPER_THRESHOLD(c),
+                                     N_THREADS(t),
+                                     ECONT(e), 
+                                     ALLELIC_FREQ_OF_ERROR(a) {
+
+  if (GSA1_MCT > GSA2_MCT) GSA2_MCT = GSA1_MCT;
   reads = &_reads;  
   SA = &_SA;    
   cout << "READ_LENGTH: " << READ_LENGTH << endl;
-  cout << "CTR_GSA1: " << CTR_GSA1 << endl;
-  cout << "CTR_GSA2: " << CTR_GSA2 << endl;
+  cout << "GSA1_MCT : " << GSA1_MCT  << endl;
+  cout << "GSA2_MCT: " << GSA2_MCT << endl;
   cout << "UBT: " << COVERAGE_UPPER_THRESHOLD << endl;
+  cout << "ALLELIC_FREQ_OF_ERROR: " << ALLELIC_FREQ_OF_ERROR << endl;
 
   // Generate branchpoint groups
   cout << "Extracting cancer-specific reads..." << endl;
@@ -151,7 +162,7 @@ void BranchPointGroups::trimCancerConsensus(consensus_pair & pair) {
 void BranchPointGroups::trimHealthyConsensus(consensus_pair & pair) {
   // Trims the distal ends of the healthy consensus read, such that
   // the number of reads contributing to each consensus character is
-  // >= TRIM_VALUE
+  // >= GSA2_MCT
   int left_arrow = 0, right_arrow= pair.nqual.size() - 1;
   for(; right_arrow > 0 && pair.nqual[right_arrow] == 'T'; right_arrow--);
   right_arrow++;
@@ -354,19 +365,21 @@ void BranchPointGroups::generateConsensusSequence(bool tissue,
   }
 
   for (read_tag const & tag : subBlock) {
-    std::string read;
+    string read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
+    string phred = reads->getPhredString(tag.read_id, tag.tissue_type);
+
+    // calibrate for orientation
     if(tag.orientation == LEFT) {
-      read = reverseComplementString( 
-         reads->getReadByIndex(tag.read_id, tag.tissue_type)
-         );
+      read = reverseComplementString(read);
+      std::reverse(phred.begin(), phred.end());
     }
     else {
-      read = reads->getReadByIndex(tag.read_id, tag.tissue_type);
       read.pop_back();    // remove dollar symbol
     }
+
     for(int i=0; i < read.size(); i++) {
       // only allow high quality bases to contribute to consensus
-      if (reads->baseQuality(tag.read_id, i, tag.tissue_type) >= MIN_PHRED_QUAL) {
+      if (phred[i] >= MIN_PHRED_QUAL) {
         switch(read[i]) {
           case 'A':
             cnsCount[0][(max_offset - tag.offset) + i]++; break;
@@ -410,12 +423,12 @@ void BranchPointGroups::generateConsensusSequence(bool tissue,
   pair_id = block.id;
   qual = buildQualityString(cnsCount, cns, tissue);
   for (int pos=0; pos < cnsCount[0].size(); pos++) {
-    // mask all positions with reads less than >= TRIM_VALUE
+    // mask all positions with reads less than >= GSA2_MCT
     int nreads=0;
     for (int base=0; base < 4; base++) {
       nreads += cnsCount[base][pos];
     }
-    if (nreads < TRIM_VALUE) {
+    if (nreads < GSA2_MCT) {
       if (tissue == TUMOUR) {
         qual[pos] = 'X';
       }
@@ -430,8 +443,8 @@ void BranchPointGroups::generateConsensusSequence(bool tissue,
   //std::cout << "Block id: " << block.id  << std::endl;
   //for (int i=0; i < alignedBlock.size(); i++) { // SHOW ALIGNED BLOCK
   //  std::cout << alignedBlock[i]  << ((subBlock[i].orientation == RIGHT) ? ", R" : ", L") 
-  //       << ((subBlock[i].tissue_type % 2) ? ", (H," : 
-  //           ((subBlock[i].tissue_type == SWITCHED) ? ", (S," : ", (T, ridx: ")) 
+  //       << ((subBlock[i].tissue_type == HEALTHY) ? ", (H, ridx:" : 
+  //           ((subBlock[i].tissue_type == SWITCHED) ? ", (S, ridx:" : ", (T, ridx: ")) 
   //       << subBlock[i].read_id << ")" << std::endl;
   //}
   //std::cout << "CONSENSUS AND CNS LEN" <<  cns.size() << std::endl;
@@ -489,8 +502,25 @@ void BranchPointGroups::extractCancerSpecificReads() {
   }
 }
 
+unsigned int BranchPointGroups::backUpSearchStart(unsigned int seed_index) {
+  // Thread work division could split a group in half. It is possible
+  // that the split could result in a non-mutated region looking as
+  // if it only contains cancer reads. 
+  if (seed_index == 0) {
+    return seed_index;
+  }
+  unsigned int start_point = seed_index - 1;
+  while (::computeLCP(SA->getElem(start_point), SA->getElem(seed_index),
+        *reads) >= reads->getMinSuffixSize()) {
+    start_point--;
+    if (start_point == 0) break;
+  }
+  return start_point;
+}
+
 void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int to) {
   set<unsigned int> threadExtr;
+  seed_index = backUpSearchStart(seed_index);
   unsigned int extension {seed_index + 1};
   while (seed_index < to && seed_index != SA->getSize() - 1) {   // CONFIRM EFFECT OF THIS
     double c_reads{0}, h_reads{0};    // reset counts
@@ -508,10 +538,10 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
       if (extension == SA->getSize()) break;    // bound check GSA
     }
     // Group size == 1 and group sizes of 1 permitted and groups is cancer read
-    if (extension - seed_index == 1 && CTR_GSA1  == 1 && SA->getElem(seed_index).type == TUMOUR) {
+    if (extension - seed_index == 1 && GSA1_MCT   == 1 && SA->getElem(seed_index).type == TUMOUR) {
       threadExtr.insert(SA->getElem(seed_index).read_id);           // extract read
     }
-    else if (c_reads >= CTR_GSA1 && (h_reads / c_reads) <= econt)  {
+    else if (c_reads >= GSA1_MCT  && (h_reads / c_reads) <= ECONT)  {
       for (unsigned int i = seed_index; i < extension; i++) {
         if (SA->getElem(i).type == TUMOUR) {
           threadExtr.insert(SA->getElem(i).read_id);
@@ -528,7 +558,7 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
   // end.  Therefore, if the case condition is true, we need to check
   // it separately.
   if (seed_index == SA->getSize() -1) {
-    if (CTR_GSA1 == 1 && SA->getElem(seed_index).type == TUMOUR) {
+    if (GSA1_MCT  == 1 && SA->getElem(seed_index).type == TUMOUR) {
       threadExtr.insert(SA->getElem(seed_index).read_id);
     }
   }
@@ -579,7 +609,7 @@ void BranchPointGroups::extractionWorker(unsigned int seed_index, unsigned int t
 //      }
 //
 //      // check below econt
-//      if (cancer_sequences >= CTR_GSA1  && 
+//      if (cancer_sequences >= GSA1_MCT   && 
 //         ((healthy_sequences / cancer_sequences) <= econt )) { // permit group
 //        for (unsigned int i = seed_index; i < extension; i++) {
 //          if(SA->getElem(i).type == TUMOUR) {     // only extr. cancer reads
@@ -750,7 +780,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
       if (extension == gsa.size()) break;
     }
     // Make alloc if group at or above CTR
-    if (extension - seed_index >= CTR_GSA2) {
+    if (extension - seed_index >= GSA2_MCT) {
       for (int i=seed_index; i < extension; i++) block.block.insert(gsa[i]); 
     }
     else {    // continue, discarding group
@@ -766,7 +796,7 @@ void BranchPointGroups::extractGroups(vector<read_tag> const& gsa) {
     seed_index = extension++;
   }
 
-  if (seed_index == gsa.size() - 1 && CTR_GSA2 == 1) {
+  if (seed_index == gsa.size() - 1 && GSA2_MCT == 1) {
     bp_block block;
     block.block.insert(gsa[seed_index]);
     block.id = block_id;
@@ -1010,13 +1040,13 @@ bool BranchPointGroups::generateConsensusSequence(unsigned int block_idx,
   for (int pos=0; pos < align_counter[0].size(); pos++) {
 
     // only start when the number of reads aligned at that position
-    /// is >= TRIM_VALUE
+    /// is >= GSA2_MCT 
 
     int nreads=0;
     for (int base=0; base < 4; base++) {
       nreads += align_counter[base][pos];
     }
-    if (nreads < TRIM_VALUE) {
+    if (nreads < GSA2_MCT) {
       if (!hit_consensus_min) {
         n_skipped_start_pos++;		// need to nibble off skipped positions from cns offset
       }
@@ -1126,7 +1156,7 @@ string BranchPointGroups::buildQualityString(vector< vector<int> > const& freq_m
     //      bases / total bases = freq.
     // bases is equivalent to the number of reads with a base of type given
     // base. 
-    if (tissue == HEALTHY) { // || TUMOUR testing
+    if (tissue == HEALTHY || tissue == TUMOUR) { // || TUMOUR testing
 
       double total_bases = 0;                     // get total_bases
       for (int base=0; base < 4; base++) {
@@ -1155,7 +1185,7 @@ string BranchPointGroups::buildQualityString(vector< vector<int> > const& freq_m
         case 'C': base = 2; break;
         case 'G': base = 3; break;
       }
-      if (freq_matrix[base][pos + m_start] < CTR_GSA2) {
+      if (freq_matrix[base][pos + m_start] < GSA2_MCT) {
         q_str += "L";
         continue;
       }
@@ -1545,7 +1575,7 @@ void BranchPointGroups::unifyBlocks(vector<bp_block> & seedBlocks) {
 
   for (blockMergeStatus const& status : mTable) {
     if (!status.merged) { // blocks that never merged were merged to
-      if (seedBlocks[status.id].size() < CTR_GSA2) continue;
+      if (seedBlocks[status.id].size() < GSA2_MCT) continue;
       BreakPointBlocks.push_back(seedBlocks[status.id]);
     }
   }
